@@ -71,8 +71,12 @@ final class FloatingPlayerController: NSObject {
     private var zoom: CGFloat = 1
     private var panMode = 0 // 0 none, 1 seek, 2 vertical, 3 drag, 4 brightness, 5 volume
     private var panStartTime: Double = 0
+    private var scrubSeeking = false
+    private var scrubTarget: Double?
     private var panStartValue: Float = 0
     private var pipWillStart = false
+    /// The current item goes through VideoProxy; on failure the original URL is tried once.
+    private var usingProxy = false
     private lazy var volumeSlider: UISlider? = {
         let v = MPVolumeView(frame: CGRect(x: -2000, y: -2000, width: 10, height: 10))
         contentView.addSubview(v)
@@ -179,22 +183,23 @@ final class FloatingPlayerController: NSObject {
                 let d = c.domain.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
                 return host == d || host.hasSuffix("." + d)
             }
-            let asset = AVURLAsset(url: source.url, options: ["AVURLAssetHTTPHeaderFieldsKey": headers, AVURLAssetHTTPCookiesKey: matching])
-            let item = AVPlayerItem(asset: asset)
-            item.audioTimePitchAlgorithm = .spectral
-            self.observe(item)
-            self.player.replaceCurrentItem(with: item)
-            var start = source.startTime
-            if start < 1, Prefs.resumePlayback, let saved = ResumeStore.position(for: source.url) {
-                start = saved
-                Toast.show(L("Resume Playback") + " " + PlayerControlsView.format(saved))
+            let open: (URL) -> Void = { url in
+                guard self.source?.url == source.url else { return }
+                self.usingProxy = VideoProxy.isProxied(url)
+                var start = source.startTime
+                if start < 1, Prefs.resumePlayback, let saved = ResumeStore.position(for: source.url) {
+                    start = saved
+                    Toast.show(L("Resume Playback") + " " + PlayerControlsView.format(saved))
+                }
+                self.load(url, headers: headers, cookies: matching, at: start)
+                self.configureAudioSession()
+                self.updateNowPlaying()
             }
-            if start > 1 { self.player.seek(to: CMTime(seconds: start, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .positiveInfinity) }
-            self.player.defaultRate = self.rate
-            self.player.playImmediately(atRate: self.rate)
-            self.configureAudioSession()
-            self.updateNowPlaying()
-            LiveSubtitles.shared.playerItemChanged(item, url: source.url)
+            if Prefs.videoAccelerate {
+                VideoProxy.shared.playableURL(for: source.url, headers: headers, cookies: matching, completion: open)
+            } else {
+                open(source.url)
+            }
         }
         if mode == .hidden { install(in: browser); setMode(.top) }
         setupPiP()
@@ -203,11 +208,33 @@ final class FloatingPlayerController: NSObject {
         controls.setVisible(true)
     }
 
+    private func load(_ url: URL, headers: [String: String], cookies: [HTTPCookie], at start: Double) {
+        let asset = AVURLAsset(url: url, options: ["AVURLAssetHTTPHeaderFieldsKey": headers, AVURLAssetHTTPCookiesKey: cookies])
+        let item = AVPlayerItem(asset: asset)
+        item.audioTimePitchAlgorithm = .spectral
+        // HLS: start with the first listed variant instead of waiting to measure bandwidth.
+        item.startsOnFirstEligibleVariant = true
+        item.preferredForwardBufferDuration = 30
+        observe(item)
+        player.replaceCurrentItem(with: item)
+        if start > 1 { player.seek(to: CMTime(seconds: start, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .positiveInfinity) }
+        player.defaultRate = rate
+        player.playImmediately(atRate: rate)
+        if let source { LiveSubtitles.shared.playerItemChanged(item, url: source.url) }
+    }
+
     private func observe(_ item: AVPlayerItem) {
         itemObservers = [
             item.observe(\.status, options: [.new]) { [weak self] item, _ in
                 DispatchQueue.main.async {
-                    guard let self else { return }
+                    guard let self, item === self.player.currentItem else { return }
+                    if item.status == .failed, self.usingProxy, let source = self.source {
+                        self.usingProxy = false
+                        let t = self.currentTime
+                        let headers = ["User-Agent": UserAgent.mobile, "Referer": source.pageURL?.absoluteString ?? ""]
+                        self.load(source.url, headers: headers, cookies: [], at: max(t, source.startTime))
+                        return
+                    }
                     if item.status == .failed {
                         self.spinner.stopAnimating()
                         self.errorLabel.text = L("Video failed to play.") + "\n" + (item.error?.localizedDescription ?? "")
@@ -462,23 +489,26 @@ final class FloatingPlayerController: NSObject {
         switch g.state {
         case .began:
             if mode == .mini { panMode = 3; return }
+            // Horizontal: seek. Vertical: volume on the left, brightness on the right
+            // (the middle strip of the pinned window keeps swipe up to close / down to shrink).
+            let x = g.location(in: contentView).x / max(contentView.bounds.width, 1)
             if abs(vel.x) > abs(vel.y) {
                 panMode = duration > 0 ? 1 : 0
                 panStartTime = currentTime
-            } else if mode == .fullscreen {
-                let left = g.location(in: contentView).x < contentView.bounds.width / 2
-                panMode = left ? 4 : 5
-                panStartValue = left ? Float(UIScreen.main.brightness) : (volumeSlider?.value ?? AVAudioSession.sharedInstance().outputVolume)
-            } else {
+            } else if mode == .top && x > 0.38 && x < 0.62 {
                 panMode = 2
+            } else {
+                let left = x < 0.5
+                panMode = left ? 5 : 4
+                panStartValue = left ? (volumeSlider?.value ?? AVAudioSession.sharedInstance().outputVolume) : Float(UIScreen.main.brightness)
             }
         case .changed:
             switch panMode {
             case 1:
-                let span = min(duration, 600.0)
-                let target = max(0, min(duration, panStartTime + Double(t.x / contentView.bounds.width) * span))
+                let target = scrubTime(for: t.x)
                 let delta = Int(target - panStartTime)
                 controls.showBadge("\(delta >= 0 ? "+" : "")\(delta)s   \(PlayerControlsView.format(target)) / \(PlayerControlsView.format(duration))", autoHide: false)
+                scrub(to: target)
             case 2:
                 container.transform = CGAffineTransform(translationX: 0, y: t.y < 0 ? t.y : t.y * 0.5)
                 container.alpha = t.y < 0 ? max(0.3, 1 + t.y / 200) : 1
@@ -498,8 +528,8 @@ final class FloatingPlayerController: NSObject {
         case .ended, .cancelled:
             switch panMode {
             case 1:
-                let span = min(duration, 600.0)
-                seek(to: panStartTime + Double(t.x / contentView.bounds.width) * span)
+                scrubTarget = nil
+                seek(to: scrubTime(for: t.x))
                 controls.showBadge(nil)
             case 2:
                 if t.y < -60 || vel.y < -700 {
@@ -531,6 +561,27 @@ final class FloatingPlayerController: NSObject {
             }
             panMode = 0
         default: break
+        }
+    }
+
+    /// Full-width swipe covers up to 3 minutes, so short and long videos both seek precisely.
+    private func scrubTime(for dx: CGFloat) -> Double {
+        let span = min(duration, 180.0)
+        return max(0, min(duration, panStartTime + Double(dx / max(contentView.bounds.width, 1)) * span))
+    }
+
+    /// Live preview while dragging: fast keyframe seeks, one at a time, always to the latest position.
+    private func scrub(to t: Double) {
+        scrubTarget = t
+        guard !scrubSeeking else { return }
+        scrubSeeking = true
+        let tol = CMTime(seconds: 1, preferredTimescale: 600)
+        player.seek(to: CMTime(seconds: t, preferredTimescale: 600), toleranceBefore: tol, toleranceAfter: tol) { [weak self] _ in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.scrubSeeking = false
+                if let next = self.scrubTarget, abs(next - t) > 0.5 { self.scrub(to: next) }
+            }
         }
     }
 

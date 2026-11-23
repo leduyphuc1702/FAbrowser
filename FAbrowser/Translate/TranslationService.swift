@@ -38,6 +38,12 @@ enum TranslateLanguages {
         return Locale.current.localizedString(forIdentifier: code) ?? code
     }
 
+    /// Language name in the app's UI language ("tiếng Anh" rather than "English").
+    static func localizedName(_ code: String) -> String {
+        let ui = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
+        return ui.localizedString(forIdentifier: normalize(code)) ?? name(code)
+    }
+
     /// Maps legacy / recognizer codes ("zh-CN", "zh", "en-US") to our identifiers.
     static func normalize(_ code: String) -> String {
         let c = code.replacingOccurrences(of: "_", with: "-")
@@ -76,17 +82,64 @@ final class TranslationService {
     }
 
     /// Translates texts in order. Throws `TranslationError`.
+    /// Cached strings are answered immediately; the rest is de-duplicated and, for larger
+    /// batches, split across two translation sessions that run in parallel.
     @MainActor
     func translate(_ texts: [String], from source: String, to target: String) async throws -> [String] {
         let s = TranslateLanguages.normalize(source), t = TranslateLanguages.normalize(target)
         if s == t { return texts }
+        let cache = TranslationCache.shared
+        let pair = s + ">" + t
+        var out = texts
+        var missing: [String] = []
+        var seen = Set<String>()
+        for (i, x) in texts.enumerated() {
+            if let c = cache.get(x, pair: pair) { out[i] = c } else if seen.insert(x).inserted { missing.append(x) }
+        }
+        guard !missing.isEmpty else { return out }
+        let translated = try await translateUncached(missing, s, t)
+        var map: [String: String] = [:]
+        for (k, x) in missing.enumerated() where k < translated.count {
+            map[x] = translated[k]
+            cache.set(translated[k], for: x, pair: pair)
+        }
+        for (i, x) in texts.enumerated() { if let m = map[x] { out[i] = m } }
+        return out
+    }
+
+    @MainActor
+    private func translateUncached(_ texts: [String], _ s: String, _ t: String) async throws -> [String] {
         #if DEBUG
         if UserDefaults.standard.bool(forKey: "FAFakeTranslate") { return texts.map { "[\(t)] " + $0 } }
         #endif
         if #available(iOS 18.0, *) {
-            return try await TranslationHostPool.shared.host(source: s, target: t).translate(texts)
+            let pool = TranslationHostPool.shared
+            guard texts.count >= 16 else { return try await pool.host(source: s, target: t).translate(texts) }
+            let mid = texts.count / 2
+            async let a = pool.host(source: s, target: t, slot: 0).translate(Array(texts[..<mid]))
+            async let b = pool.host(source: s, target: t, slot: 1).translate(Array(texts[mid...]))
+            return try await a + b
         }
         throw TranslationError.unavailableOS
+    }
+
+    /// Starts the translation sessions for a pair ahead of time so the first batch doesn't
+    /// pay for loading the model.
+    @MainActor
+    func warmUp(from source: String, to target: String, sample: String) {
+        let s = TranslateLanguages.normalize(source), t = TranslateLanguages.normalize(target)
+        guard s != t, #available(iOS 18.0, *) else { return }
+        let pool = TranslationHostPool.shared
+        let text = String(sample.prefix(120))
+        Task { @MainActor in
+            // Only when the pack is installed: otherwise the session would show the download sheet.
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "FAFakeTranslate") { return }
+            #endif
+            guard await self.status(from: s, to: t) == .installed else { return }
+            _ = try? await pool.host(source: s, target: t, slot: 0).translate([text])
+            _ = try? await pool.host(source: s, target: t, slot: 1).translate([text])
+        }
     }
 
     enum PackStatus { case installed, downloadable, unsupported, unavailableOS }
@@ -122,6 +175,68 @@ final class TranslationService {
     }
 }
 
+// MARK: - Cache
+
+/// Translated strings per language pair, kept in memory and on disk, so revisited pages and
+/// text repeated across a site (menus, headers, footers) are applied without running the model.
+@MainActor
+final class TranslationCache {
+    static let shared = TranslationCache()
+    private static let maxEntries = 40_000
+    private var pairs: [String: [String: String]] = [:]
+    private var dirty = Set<String>()
+    private var saveScheduled = false
+    private let dir: URL = {
+        let d = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("translations", isDirectory: true)
+        try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
+        return d
+    }()
+
+    private func file(_ pair: String) -> URL {
+        dir.appendingPathComponent(pair.replacingOccurrences(of: ">", with: "_") + ".json")
+    }
+
+    private func table(_ pair: String) -> [String: String] {
+        if let t = pairs[pair] { return t }
+        let t = (try? Data(contentsOf: file(pair))).flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
+        pairs[pair] = t
+        return t
+    }
+
+    func get(_ text: String, pair: String) -> String? { table(pair)[text] }
+
+    func set(_ translation: String, for text: String, pair: String) {
+        guard text.count <= 4000, translation != text || text.count < 40 else { return }
+        var t = table(pair)
+        if t.count >= TranslationCache.maxEntries { t = Dictionary(uniqueKeysWithValues: t.shuffled().prefix(TranslationCache.maxEntries / 2).map { ($0.key, $0.value) }) }
+        t[text] = translation
+        pairs[pair] = t
+        dirty.insert(pair)
+        scheduleSave()
+    }
+
+    private func scheduleSave() {
+        guard !saveScheduled else { return }
+        saveScheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            guard let self else { return }
+            self.saveScheduled = false
+            let jobs = self.dirty.map { (self.file($0), self.pairs[$0] ?? [:]) }
+            self.dirty.removeAll()
+            DispatchQueue.global(qos: .utility).async {
+                for (url, t) in jobs { if let d = try? JSONEncoder().encode(t) { try? d.write(to: url, options: .atomic) } }
+            }
+        }
+    }
+
+    func clear() {
+        pairs.removeAll()
+        dirty.removeAll()
+        try? FileManager.default.removeItem(at: dir)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    }
+}
+
 // MARK: - iOS 18 implementation
 
 @available(iOS 18.0, *)
@@ -130,8 +245,8 @@ final class TranslationHostPool {
     static let shared = TranslationHostPool()
     private var hosts: [String: TranslationHost] = [:]
 
-    func host(source: String, target: String) -> TranslationHost {
-        let key = source + ">" + target
+    func host(source: String, target: String, slot: Int = 0) -> TranslationHost {
+        let key = source + ">" + target + "#\(slot)"
         if let h = hosts[key], h.isAlive { return h }
         let h = TranslationHost(source: source, target: target)
         if let root = UIApplication.shared.keyWindowCompat?.rootViewController { h.attach(to: root) }

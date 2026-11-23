@@ -505,6 +505,19 @@ VI = {
     "iOS asks for confirmation before downloading. Packs can be removed in the iOS Settings app.": "iOS sẽ hỏi xác nhận trước khi tải. Có thể xoá gói trong ứng dụng Cài đặt.",
     "clear_all_tabs_hint": "Đóng tất cả tab?",
     "qrcode.nocode": "Không tìm thấy mã QR",
+    "Always Translate": "Luôn dịch",
+    "Clear Translation Cache": "Xoá bộ nhớ đệm bản dịch",
+    "Downloads videos over several connections at once and fetches upcoming HLS segments ahead of time, so videos start sooner and seeking is smoother on the same connection. Turn off if a site's video won't play.": "Tải video qua nhiều kết nối cùng lúc và tải trước các đoạn HLS sắp phát, nên video mở nhanh hơn và tua mượt hơn trên cùng đường truyền. Tắt nếu video của trang nào đó không phát được.",
+    "Loading": "Tải video",
+    "Offer to translate foreign pages": "Đề xuất dịch trang tiếng nước ngoài",
+    "Page is in %@": "Trang này là %@",
+    "Pages in these languages are translated automatically. Translations are cached on the device so revisited pages appear instantly.": "Trang bằng các ngôn ngữ này được dịch tự động. Bản dịch được lưu trên máy nên trang đã xem (kể cả khi quay lại) hiện ngay lập tức.",
+    "Stop Translating": "Ngừng dịch",
+    "Tap a language to turn it on or off.": "Chạm vào ngôn ngữ để bật hoặc tắt.",
+    "Translate to %@": "Dịch sang %@",
+    "Video Acceleration": "Tăng tốc tải video",
+    "Videos open in a floating window as soon as they start playing; video ads are left to finish first. Swipe sideways to seek, swipe up or down on the left for volume and on the right for brightness, swipe the middle up to close or down to shrink. In the small window: drag to move, swipe right to close, double tap to go back. Long press the floating video button to turn this on or off.": "Video tự mở trong cửa sổ nổi ngay khi bắt đầu phát; quảng cáo video được để chạy hết trước. Vuốt ngang để tua, vuốt dọc bên trái để chỉnh âm lượng, bên phải để chỉnh độ sáng, vuốt phần giữa lên để đóng hoặc xuống để thu nhỏ. Ở cửa sổ nhỏ: kéo để di chuyển, vuốt phải để đóng, chạm hai lần để quay lại. Nhấn giữ nút video nổi để bật/tắt.",
+    "Waiting for the video ad to finish…": "Đang chờ quảng cáo video kết thúc…",
 }
 
 KEY_RE = re.compile(r'\bLF?\("((?:[^"\\]|\\.)*)"')

@@ -109,6 +109,8 @@ enum Prefs {
     @Pref("playbackRate", 1.0) static var playbackRate: Double
     @Pref("backgroundPlay", true) static var backgroundPlay: Bool
     @Pref("videoFloating", true) static var videoFloating: Bool
+    /// Load floating-player videos through the local multi-connection proxy.
+    @Pref("videoAccelerate", true) static var videoAccelerate: Bool
     @Pref("longPressSpeed", 3.0) static var longPressSpeed: Double
     @Pref("autoPiP", true) static var autoPiP: Bool
     @Pref("resumePlayback", true) static var resumePlayback: Bool
@@ -120,6 +122,14 @@ enum Prefs {
     // Translate (offline, Apple Translation)
     @Pref("translateTarget", "vi") static var translateTarget: String
     @Pref("translateAutoContinue", true) static var translateAutoContinue: Bool
+    /// Offer to translate pages that aren't in the target language.
+    @Pref("translateSuggest", true) static var translateSuggest: Bool
+    /// Source languages the user chose to always translate (comma separated).
+    @Pref("autoTranslateLangs", "") static var autoTranslateLangsRaw: String
+    static var autoTranslateLangs: Set<String> {
+        get { Set(autoTranslateLangsRaw.split(separator: ",").map(String.init)) }
+        set { autoTranslateLangsRaw = newValue.sorted().joined(separator: ",") }
+    }
 
     // Live subtitles
     @Pref("subtitleSource", "auto") static var subtitleSource: String

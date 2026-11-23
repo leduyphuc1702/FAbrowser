@@ -20,9 +20,16 @@ final class Tab {
 
     /// Media found on the current page (reset on each main-frame navigation).
     var videos: [DetectedVideo] = []
+    var adNoticeShown = false
     /// While true, every page loaded in this tab is translated to `Prefs.translateTarget`.
     var translateActive = false
     var translatedFrom: String?
+    /// Source language offered in the "translate this page?" bar for the current page.
+    var translateSuggested: String?
+    /// Languages whose suggestion the user dismissed in this tab.
+    var translateDeclined = Set<String>()
+    /// Page id + state already handled, so DOMContentLoaded and didFinish don't both start work.
+    var translateHandled: String?
 
     fileprivate var restoreState: Data?
     fileprivate var pendingURL: URL?

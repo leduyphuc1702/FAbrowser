@@ -32,6 +32,7 @@
 "All Resume" = "All Resume";
 "Allow" = "Allow";
 "Allow Auto Replace Playing" = "Allow Auto Replace Playing";
+"Always Translate" = "Always Translate";
 "App Icon" = "App Icon";
 "App Lock" = "App Lock";
 "Appearance" = "Appearance";
@@ -89,6 +90,7 @@
 "Clear History" = "Clear History";
 "Clear Search History" = "Clear Search History";
 "Clear Site Data" = "Clear Site Data";
+"Clear Translation Cache" = "Clear Translation Cache";
 "Clear all hidden element rules?" = "Clear all hidden element rules?";
 "Clear history on exit" = "Clear history on exit";
 "Cleared" = "Cleared";
@@ -146,6 +148,7 @@
 "Download the packs you need once; translation then works offline. Packs are managed by iOS in Settings › Apps › Translate." = "Download the packs you need once; translation then works offline. Packs are managed by iOS in Settings › Apps › Translate.";
 "Downloaded" = "Downloaded";
 "Downloading" = "Downloading";
+"Downloads videos over several connections at once and fetches upcoming HLS segments ahead of time, so videos start sooner and seeking is smoother on the same connection. Turn off if a site's video won't play." = "Downloads videos over several connections at once and fetches upcoming HLS segments ahead of time, so videos start sooner and seeking is smoother on the same connection. Turn off if a site's video won't play.";
 "Duplicate" = "Duplicate";
 "EasyList and ABPVN are built in and work offline. Enabled lists are refreshed every 4 days." = "EasyList and ABPVN are built in and work offline. Enabled lists are refreshed every 4 days.";
 "Edit" = "Edit";
@@ -224,6 +227,7 @@
 "Light Mode" = "Light";
 "Listening…" = "Listening…";
 "Live Subtitles" = "Live Subtitles";
+"Loading" = "Loading";
 "Loading next page..." = "Loading next page...";
 "Log in" = "Log in";
 "Long Press Speed" = "Long Press Speed";
@@ -265,6 +269,7 @@
 "Not Supported" = "Not Supported";
 "OK" = "OK";
 "Off" = "Off";
+"Offer to translate foreign pages" = "Offer to translate foreign pages";
 "Offline Language Packs" = "Offline Language Packs";
 "Offline Translation" = "Offline Translation";
 "Offline translation requires iOS 18 or later." = "Offline translation requires iOS 18 or later.";
@@ -284,6 +289,8 @@
 "Page" = "Page";
 "Page Images" = "Page Images";
 "Page Zoom" = "Page Zoom";
+"Page is in %@" = "Page is in %@";
+"Pages in these languages are translated automatically. Translations are cached on the device so revisited pages appear instantly." = "Pages in these languages are translated automatically. Translations are cached on the device so revisited pages appear instantly.";
 "Parchment" = "Parchment";
 "Passive" = "Passive";
 "Passive extensions run automatically on matching pages. Active extensions run when you pick them from Menu › JavaScript Extensions." = "Passive extensions run automatically on matching pages. Active extensions run when you pick them from Menu › JavaScript Extensions.";
@@ -396,6 +403,7 @@
 "Start Refresh" = "Start Refresh";
 "Stop Auto Refresh" = "Stop Auto Refresh";
 "Stop Screen Always On" = "Stop Screen Always On";
+"Stop Translating" = "Stop Translating";
 "Streaming Video" = "Streaming Video";
 "Stretch" = "Stretch";
 "Subtitles for any video, translated into your language." = "Subtitles for any video, translated into your language.";
@@ -405,6 +413,7 @@
 "Tab Switch Button" = "Tab Switch Button";
 "Tabs" = "Tabs";
 "Tabs Bar" = "Tabs Bar";
+"Tap a language to turn it on or off." = "Tap a language to turn it on or off.";
 "Tap a subscription to update it. Swipe to delete." = "Tap a subscription to update it. Swipe to delete.";
 "Tap an element to select it" = "Tap an element to select it";
 "Tap the top or bottom part of the page to scroll one screen." = "Tap the top or bottom part of the page to scroll one screen.";
@@ -424,6 +433,7 @@
 "Touch to Turn Page" = "Touch to Turn Page";
 "Translate" = "Translate";
 "Translate to" = "Translate to";
+"Translate to %@" = "Translate to %@";
 "Translate whole pages on device. Nothing is sent to Google." = "Translate whole pages on device. Nothing is sent to Google.";
 "Translation Only" = "Translation Only";
 "Translation runs on device with Apple's offline translator (iOS 18+). No page content is sent to Google or any server." = "Translation runs on device with Apple's offline translator (iOS 18+). No page content is sent to Google or any server.";
@@ -449,13 +459,15 @@
 "Version" = "Version";
 "Very Beginning" = "Very Beginning";
 "Video" = "Video";
+"Video Acceleration" = "Video Acceleration";
 "Video Compatibility Mode" = "Video Compatibility Mode";
 "Video Floating" = "Video Floating";
 "Video Gravity:" = "Video Gravity:";
 "Video Size:" = "Video Size:";
 "Video failed to play." = "Video failed to play.";
-"Videos you play open in a floating window at the top. Swipe up to close, swipe sideways to seek, pull down to shrink. In the small window: drag to move, swipe right to close, double tap to go back. Long press the floating video button to turn this on or off." = "Videos you play open in a floating window at the top. Swipe up to close, swipe sideways to seek, pull down to shrink. In the small window: drag to move, swipe right to close, double tap to go back. Long press the floating video button to turn this on or off.";
+"Videos open in a floating window as soon as they start playing; video ads are left to finish first. Swipe sideways to seek, swipe up or down on the left for volume and on the right for brightness, swipe the middle up to close or down to shrink. In the small window: drag to move, swipe right to close, double tap to go back. Long press the floating video button to turn this on or off." = "Videos open in a floating window as soon as they start playing; video ads are left to finish first. Swipe sideways to seek, swipe up or down on the left for volume and on the right for brightness, swipe the middle up to close or down to shrink. In the small window: drag to move, swipe right to close, double tap to go back. Long press the floating video button to turn this on or off.";
 "View Page Source" = "View Page Source";
+"Waiting for the video ad to finish…" = "Waiting for the video ad to finish…";
 "Wallpaper" = "Wallpaper";
 "Wallpaper Mask" = "Wallpaper Mask";
 "Web pages and live subtitles will be translated into this language." = "Web pages and live subtitles will be translated into this language.";

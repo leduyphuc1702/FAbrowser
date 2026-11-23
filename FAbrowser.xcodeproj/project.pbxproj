@@ -26,6 +26,7 @@
 		64994F561F7E3456D9D9302B /* ExtensionsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09EC64C573226E94A8C4D0E6 /* ExtensionsViewController.swift */; };
 		6CC3235B459008B566FEF05F /* URLBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A83FA934ECFDD964A7B915E /* URLBarView.swift */; };
 		6EAF0B85C948C503F21E04E8 /* AdBlocker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D86CEC3B54DD7068E5035D4 /* AdBlocker.swift */; };
+		7CA8A620F3C4E24EADC5FC5E /* VideoProxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1382B9033C2EAC88C395F7A /* VideoProxy.swift */; };
 		85EB3CE5491C54CDB120C609 /* PageTranslator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1AB2C867369B4567B23D0F /* PageTranslator.swift */; };
 		8B08343F2F45EB6B57600D07 /* DebugLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CABEC703E73F1CE9A736788 /* DebugLaunch.swift */; };
 		8BD4B52203A538989C3C832B /* BrowserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 629D1D449C4B71E2C7CA7262 /* BrowserViewController.swift */; };
@@ -101,6 +102,7 @@
 		D0F05F139A5E596CB3600E80 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		D7CEE6A746AD9809224F58CF /* BrowserViewController+Actions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserViewController+Actions.swift"; sourceTree = "<group>"; };
 		DA451432E4765C58617A3947 /* BookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkStore.swift; sourceTree = "<group>"; };
+		E1382B9033C2EAC88C395F7A /* VideoProxy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoProxy.swift; sourceTree = "<group>"; };
 		F6EE55893B39B72465305123 /* TopTabsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopTabsView.swift; sourceTree = "<group>"; };
 		F7456D1915D6467471FD3E00 /* HomePageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomePageViewController.swift; sourceTree = "<group>"; };
 		FB6DFA71C2B49D74A5806C54 /* BrowserViewController+Media.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserViewController+Media.swift"; sourceTree = "<group>"; };
@@ -298,6 +300,7 @@
 			children = (
 				00886C4BC5A7539276E75034 /* FloatingPlayer.swift */,
 				A015644F6B7326C9ADBCB73F /* PlayerControlsView.swift */,
+				E1382B9033C2EAC88C395F7A /* VideoProxy.swift */,
 				06BEA44D29A8F6077C8EEEED /* VideoSniffer.swift */,
 			);
 			path = Video;
@@ -436,6 +439,7 @@
 				0968B72A1C0C5023BD269A5D /* TranslationService.swift in Sources */,
 				6CC3235B459008B566FEF05F /* URLBarView.swift in Sources */,
 				161DE27903460E3AC879C623 /* UserAgent.swift in Sources */,
+				7CA8A620F3C4E24EADC5FC5E /* VideoProxy.swift in Sources */,
 				F9266B4A75429689885BC3E7 /* VideoSniffer.swift in Sources */,
 				E1780775E81F340D1A979482 /* Viewers.swift in Sources */,
 				ED5A28AED3FA1144B5190696 /* WiFiTransferViewController.swift in Sources */,

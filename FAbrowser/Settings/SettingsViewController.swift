@@ -367,10 +367,13 @@ final class SettingsViewController: UITableViewController, PHPickerViewControlle
 
         case .video:
             return [
-                SettingSection(title: L("Video Floating"), footer: L("Videos you play open in a floating window at the top. Swipe up to close, swipe sideways to seek, pull down to shrink. In the small window: drag to move, swipe right to close, double tap to go back. Long press the floating video button to turn this on or off."), rows: [
+                SettingSection(title: L("Video Floating"), footer: L("Videos open in a floating window as soon as they start playing; video ads are left to finish first. Swipe sideways to seek, swipe up or down on the left for volume and on the right for brightness, swipe the middle up to close or down to shrink. In the small window: drag to move, swipe right to close, double tap to go back. Long press the floating video button to turn this on or off."), rows: [
                     .toggle(L("Video Floating"), get: { Prefs.videoFloating }, set: { Prefs.videoFloating = $0 }),
                     .toggle(L("Allow Auto Replace Playing"), get: { Prefs.allowAutoReplace }, set: { Prefs.allowAutoReplace = $0 }),
                     .toggle(L("Resume Playback"), get: { Prefs.resumePlayback }, set: { Prefs.resumePlayback = $0 }),
+                ]),
+                SettingSection(title: L("Loading"), footer: L("Downloads videos over several connections at once and fetches upcoming HLS segments ahead of time, so videos start sooner and seeking is smoother on the same connection. Turn off if a site's video won't play."), rows: [
+                    .toggle(L("Video Acceleration"), get: { Prefs.videoAccelerate }, set: { Prefs.videoAccelerate = $0 }),
                 ]),
                 SettingSection(title: L("Playback"), footer: L("Long press the video to play fast; double tap the left or right side to seek 5 seconds; two-finger tap to change the video gravity; pinch to zoom."), rows: [
                     .choice(L("Playback Speed"), Self.rates.map(Self.rateTitle), get: { Self.rates.firstIndex(of: Prefs.playbackRate) ?? 2 }, set: { Prefs.playbackRate = Self.rates[$0] }),
@@ -397,6 +400,16 @@ final class SettingsViewController: UITableViewController, PHPickerViewControlle
                     .choice(L("Translate to"), TranslateLanguages.all.map(\.name), get: { TranslateLanguages.all.firstIndex { $0.code == target } ?? 0 },
                             set: { Prefs.translateTarget = TranslateLanguages.all[$0].code }),
                     .toggle(L("Keep translating new pages"), get: { Prefs.translateAutoContinue }, set: { Prefs.translateAutoContinue = $0 }),
+                    .toggle(L("Offer to translate foreign pages"), get: { Prefs.translateSuggest }, set: { Prefs.translateSuggest = $0 }),
+                ]),
+                SettingSection(footer: L("Pages in these languages are translated automatically. Translations are cached on the device so revisited pages appear instantly."), rows: [
+                    .nav(L("Always Translate"), detail: { Prefs.autoTranslateLangs.isEmpty ? L("None") : Prefs.autoTranslateLangs.map { TranslateLanguages.name($0) }.sorted().joined(separator: ", ") }) { vc in
+                        vc.editAutoTranslateLanguages()
+                    },
+                    .action(L("Clear Translation Cache")) { _ in
+                        TranslationCache.shared.clear()
+                        Toast.show(L("Cleared"))
+                    },
                 ]),
                 SettingSection(title: L("Language Packs"), footer: TranslationService.isAvailable ? L("Download the packs you need once; translation then works offline. Packs are managed by iOS in Settings › Apps › Translate.") : TranslationError.unavailableOS.localizedDescription, rows: packRows),
             ]
@@ -516,6 +529,20 @@ final class SettingsViewController: UITableViewController, PHPickerViewControlle
             }
             self.refreshPackStatus()
         }
+    }
+
+    fileprivate func editAutoTranslateLanguages() {
+        let target = TranslateLanguages.normalize(Prefs.translateTarget)
+        let sheet = UIAlertController(title: L("Always Translate"), message: L("Tap a language to turn it on or off."), preferredStyle: .actionSheet)
+        for lang in TranslateLanguages.all where lang.code != target {
+            let on = Prefs.autoTranslateLangs.contains(lang.code)
+            sheet.addAction(UIAlertAction(title: lang.name + (on ? "  ✓" : ""), style: .default) { [weak self] _ in
+                if on { Prefs.autoTranslateLangs.remove(lang.code) } else { Prefs.autoTranslateLangs.insert(lang.code) }
+                self?.rebuild()
+            })
+        }
+        sheet.addAction(UIAlertAction(title: L("Cancel"), style: .cancel))
+        presentSheet(sheet)
     }
 
     // MARK: Actions

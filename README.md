@@ -38,7 +38,9 @@ Viết bằng Swift + UIKit + WKWebView. Bố cục và luồng thao tác lấy 
 Bấm phát là video trên trang tách ra trình phát riêng. Bạn vẫn lướt web bình thường trong lúc xem.
 
 - Ba chế độ: **ghim trên đầu** (đẩy trang xuống), **cửa sổ mini** kéo thả tự do, và **toàn màn hình ngang** có khoá thao tác, giờ và pin
-- Cử chỉ: vuốt ngang để tua, vuốt dọc để chỉnh độ sáng hoặc âm lượng, chạm hai lần ở mép trái/phải để tua 5 giây, nhấn giữ để phát nhanh, chụm hai ngón để đổi tỉ lệ khung
+- Tự mở cửa sổ khi bắt được video đang phát. Nhận ra quảng cáo pre-roll: để quảng cáo (và bộ đếm "bỏ qua sau 5s") chạy tiếp trong trang, rồi mới mở video chính
+- Cử chỉ: kéo ngang để tua (xem trước thời gian), kéo dọc **bên trái** chỉnh âm lượng, **bên phải** chỉnh độ sáng, chạm hai lần ở mép trái/phải để tua 5 giây, nhấn giữ để phát nhanh, chụm hai ngón để đổi tỉ lệ khung
+- **Tăng tốc tải video**: proxy cục bộ tải song song nhiều đoạn (MP4 theo khúc 1 MB, HLS theo segment), tải trước phía trước điểm đang xem và cache trong bộ nhớ nên tua mượt hơn
 - Hình trong hình (PiP), phát trong nền, nhớ vị trí đang xem, tự thay video khi trang phát video mới
 - Chế độ tương thích cho những trang tự chặn trình phát
 
@@ -61,7 +63,9 @@ Chuyển lời nói trong **bất kỳ video nào** thành phụ đề, rồi d�
 Dịch cả trang bằng **Apple Translation** (iOS 18+). Nội dung không rời khỏi máy, không cần Google.
 
 - Tự phát hiện ngôn ngữ trang và dịch dần theo phần đang hiển thị
-- Thanh dịch cho phép xem bản gốc hoặc đổi ngôn ngữ đích. Có tuỳ chọn tự dịch các trang mới
+- Gặp trang khác ngôn ngữ chính sẽ **đề xuất dịch**. Đồng ý một lần là các trang sau cùng ngôn ngữ đó tự dịch, kể cả khi bấm Quay lại
+- Bản dịch được **cache** trên máy nên mở lại trang gần như tức thì. Dịch song song hai phiên và ưu tiên phần đang hiển thị
+- Thanh dịch cho phép xem bản gốc, đổi ngôn ngữ đích hoặc dừng dịch
 - Quản lý gói ngôn ngữ (Anh, Nhật, Trung giản thể/phồn thể, Hàn…) ngay trong Cài đặt
 
 </td>
@@ -72,7 +76,8 @@ Chặn quảng cáo bằng `WKContentRuleList` của WebKit kết hợp script c
 
 - Có sẵn **EasyList + ABPVN** trong app nên chặn được ngay từ lần mở đầu, kể cả khi offline. Bộ lọc tự cập nhật sau mỗi 4 ngày
 - Chặn quảng cáo nổi/dính màn hình, cửa sổ bật lên và pop-under, tự bấm **bỏ qua quảng cáo video**, chặn trang tự nhảy sang app khác
-- Hỗ trợ đăng ký bộ lọc ABP bất kỳ, danh sách trắng theo trang, và tự đánh dấu phần tử để ẩn
+- Có sẵn các bộ lọc đề xuất từ [yokoffing/filterlists](https://github.com/yokoffing/filterlists): HaGeZi Pro mini, Annoyance List, Actually Legitimate URL Shortener (bỏ tham số theo dõi khỏi link), Privacy Essentials, click2load, YouTube Clear View, Anti-paywall, chặn web độc hại…
+- Hỗ trợ đăng ký bộ lọc ABP/uBO bất kỳ (kể cả `$removeparam`), danh sách trắng theo trang, và tự đánh dấu phần tử để ẩn. Bộ lọc lớn được chia thành nhiều rule list để vượt giới hạn của WebKit
 
 </td>
 </tr>
@@ -161,8 +166,9 @@ FAbrowser/
 │   │                 +Actions menu, hộp công cụ, công cụ trang
 │   │                 +Media   video nổi, dịch trang, phụ đề
 │   └── Views/      URLBar, TabToolbar, TopTabs, FindInPage, ErrorPage…
-├── Video/          VideoSniffer (JS dò video), FloatingPlayer, PlayerControlsView
-├── Translate/      TranslationService (Apple Translation), PageTranslator (JS + thanh dịch)
+├── Video/          VideoSniffer (JS dò video, nhận diện quảng cáo), FloatingPlayer, PlayerControlsView,
+│                   VideoProxy (proxy loopback tải song song + cache)
+├── Translate/      TranslationService (Apple Translation + TranslationCache), PageTranslator (JS + thanh dịch/đề xuất)
 ├── Subtitles/      LiveSubtitles (Speech + audio tap + ReplayKit, overlay phụ đề)
 ├── Models/         TabManager, AdBlocker + ABPConverter, ScriptManager, Bookmark/History/Search stores
 ├── Settings/       Settings (khai báo bằng SettingRow), Onboarding, Extensions
@@ -188,8 +194,10 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    L[EasyList · ABPVN · bộ lọc đăng ký] --> P[ABPConverter]
-    P --> R[(WKContentRuleList<br/>đã biên dịch, lưu cache)]
+    L[EasyList · ABPVN · HaGeZi · yokoffing · bộ lọc đăng ký] --> P[ABPConverter]
+    P --> R[(Nhiều WKContentRuleList<br/>~90k quy tắc/list, lưu cache)]
+    P -->|removeparam| U[Làm sạch URL<br/>bỏ utm_, fbclid…]
+    U --> W
     R -->|chặn mạng + ẩn CSS| W[WKWebView]
     S[Script trên trang] -->|popup · quảng cáo nổi · bỏ qua quảng cáo video| W
     W -->|decidePolicyFor| J[Chặn tự nhảy app]
@@ -220,9 +228,12 @@ xcrun simctl launch booted com.fabrowser.app -FASkipOnboarding YES -FAScreen men
 xcrun simctl launch booted com.fabrowser.app -FAOpenURL https://example.com -FAScreen toolbox
 xcrun simctl launch booted com.fabrowser.app -FAPlayURL https://…/video.mp4 -FAScreen player.subtitles
 xcrun simctl launch booted com.fabrowser.app -FAFakeTranslate YES -FAScreen translate   # giả lập dịch trên Simulator
+xcrun simctl launch booted com.fabrowser.app -FAFakeTranslate YES -FAOpenURL https://en.wikipedia.org/wiki/Hanoi \
+  -FAScreen translate.accept -FAThenURL https://en.wikipedia.org/wiki/Pho -FAThenBack YES   # đề xuất → dịch → trang sau → Quay lại
+xcrun simctl launch booted com.fabrowser.app -FAProxyLog YES -FAPlayURL https://…/video.mp4   # log của proxy tăng tốc video
 ```
 
-`-FAScreen` nhận: `menu` `toolbox` `tabs` `search` `library` `files` `settings` `settings.<trang>` `reader` `onboarding` `player.mini` `player.full` `subtitles` `translate`…
+`-FAScreen` nhận: `menu` `toolbox` `tabs` `search` `library` `files` `settings` `settings.<trang>` `reader` `onboarding` `player.mini` `player.full` `subtitles` `translate` `translate.accept`…
 
 ---
 
@@ -232,6 +243,9 @@ xcrun simctl launch booted com.fabrowser.app -FAFakeTranslate YES -FAScreen tran
 - [x] Dịch trang ngoại tuyến bằng Apple Translation
 - [x] Phụ đề trực tiếp + dịch phụ đề (Anh/Nhật/Trung → Việt)
 - [x] Chặn quảng cáo: EasyList/ABPVN có sẵn, popup, quảng cáo video, chặn tự nhảy app
+- [x] Bộ lọc yokoffing/HaGeZi, `$removeparam`
+- [x] Đề xuất dịch, tự dịch theo ngôn ngữ, cache bản dịch
+- [x] Tăng tốc tải video bằng proxy tải song song
 - [ ] Tải video HLS/m3u8
 - [ ] Đồng bộ iCloud dấu trang và tab
 - [ ] Trình quản lý mật khẩu và tự điền
@@ -242,7 +256,9 @@ xcrun simctl launch booted com.fabrowser.app -FAFakeTranslate YES -FAScreen tran
 
 - Dịch trang và dịch phụ đề cần iOS 18. Gói ngôn ngữ được tải khi dùng lần đầu. Trên Simulator, Apple Translation có thể báo cặp ngôn ngữ không hỗ trợ.
 - Phụ đề cho HLS/video trong trang dùng ReplayKit, nên iOS sẽ hỏi quyền ghi màn hình.
-- ABPConverter hỗ trợ quy tắc mạng (`||domain^`, `$third-party`, `$domain=`, `@@`), hosts file và quy tắc ẩn `##`. Quy tắc nâng cao (`#?#`, `#$#`, scriptlet) sẽ bị bỏ qua.
+- ABPConverter hỗ trợ quy tắc mạng (`||domain^`, `$third-party`/`3p`, `$domain=`/`from=`, `@@`), `$removeparam`, hosts file và quy tắc ẩn `##`. Quy tắc nâng cao (`#?#`, `#$#`, scriptlet, `:has()`) sẽ bị bỏ qua.
+- Tăng tốc tải video chỉ áp dụng cho trình phát nổi native, không áp dụng cho trình phát trong trang. Trang phát bằng MSE/blob chỉ mở được khi trang đã tải file m3u8.
+- Nhận diện quảng cáo video dựa trên class, host và chữ "Ad/Quảng cáo/Skip". Trình phát quảng cáo lạ có thể vẫn bị nhận nhầm.
 
 ---
 

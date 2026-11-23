@@ -32,6 +32,7 @@
 "All Resume" = "Tiếp tục tất cả";
 "Allow" = "Cho phép";
 "Allow Auto Replace Playing" = "Cho phép tự thay video đang phát";
+"Always Translate" = "Luôn dịch";
 "App Icon" = "Biểu tượng ứng dụng";
 "App Lock" = "Khoá ứng dụng";
 "Appearance" = "Giao diện";
@@ -89,6 +90,7 @@
 "Clear History" = "Xoá lịch sử";
 "Clear Search History" = "Xoá lịch sử tìm kiếm";
 "Clear Site Data" = "Xoá dữ liệu trang";
+"Clear Translation Cache" = "Xoá bộ nhớ đệm bản dịch";
 "Clear all hidden element rules?" = "Xoá tất cả quy tắc ẩn phần tử?";
 "Clear history on exit" = "Xoá lịch sử khi thoát";
 "Cleared" = "Đã xoá";
@@ -146,6 +148,7 @@
 "Download the packs you need once; translation then works offline. Packs are managed by iOS in Settings › Apps › Translate." = "Tải gói ngôn ngữ một lần, sau đó dịch ngoại tuyến. Gói do iOS quản lý trong Cài đặt › Ứng dụng › Dịch thuật.";
 "Downloaded" = "Đã tải xuống";
 "Downloading" = "Đang tải xuống";
+"Downloads videos over several connections at once and fetches upcoming HLS segments ahead of time, so videos start sooner and seeking is smoother on the same connection. Turn off if a site's video won't play." = "Tải video qua nhiều kết nối cùng lúc và tải trước các đoạn HLS sắp phát, nên video mở nhanh hơn và tua mượt hơn trên cùng đường truyền. Tắt nếu video của trang nào đó không phát được.";
 "Duplicate" = "Nhân bản";
 "EasyList and ABPVN are built in and work offline. Enabled lists are refreshed every 4 days." = "EasyList và ABPVN được tích hợp sẵn, hoạt động ngoại tuyến. Danh sách đang bật được làm mới mỗi 4 ngày.";
 "Edit" = "Sửa";
@@ -224,6 +227,7 @@
 "Light Mode" = "Sáng";
 "Listening…" = "Đang nghe…";
 "Live Subtitles" = "Phụ đề trực tiếp";
+"Loading" = "Tải video";
 "Loading next page..." = "Đang tải trang kế tiếp...";
 "Log in" = "Đăng nhập";
 "Long Press Speed" = "Tốc độ khi nhấn giữ";
@@ -265,6 +269,7 @@
 "Not Supported" = "Không hỗ trợ";
 "OK" = "OK";
 "Off" = "Tắt";
+"Offer to translate foreign pages" = "Đề xuất dịch trang tiếng nước ngoài";
 "Offline Language Packs" = "Gói ngôn ngữ ngoại tuyến";
 "Offline Translation" = "Dịch ngoại tuyến";
 "Offline translation requires iOS 18 or later." = "Dịch ngoại tuyến cần iOS 18 trở lên.";
@@ -284,6 +289,8 @@
 "Page" = "Trang";
 "Page Images" = "Ảnh trong trang";
 "Page Zoom" = "Thu phóng trang";
+"Page is in %@" = "Trang này là %@";
+"Pages in these languages are translated automatically. Translations are cached on the device so revisited pages appear instantly." = "Trang bằng các ngôn ngữ này được dịch tự động. Bản dịch được lưu trên máy nên trang đã xem (kể cả khi quay lại) hiện ngay lập tức.";
 "Parchment" = "Giấy da";
 "Passive" = "Bị động";
 "Passive extensions run automatically on matching pages. Active extensions run when you pick them from Menu › JavaScript Extensions." = "Tiện ích bị động tự chạy trên trang phù hợp. Tiện ích chủ động chạy khi bạn chọn từ Menu › Tiện ích JavaScript.";
@@ -396,6 +403,7 @@
 "Start Refresh" = "Bắt đầu làm mới";
 "Stop Auto Refresh" = "Dừng tự động làm mới";
 "Stop Screen Always On" = "Tắt giữ màn hình sáng";
+"Stop Translating" = "Ngừng dịch";
 "Streaming Video" = "Video phát trực tuyến";
 "Stretch" = "Kéo giãn";
 "Subtitles for any video, translated into your language." = "Phụ đề cho mọi video, dịch sang ngôn ngữ của bạn.";
@@ -405,6 +413,7 @@
 "Tab Switch Button" = "Nút chuyển tab";
 "Tabs" = "Tab";
 "Tabs Bar" = "Thanh tab";
+"Tap a language to turn it on or off." = "Chạm vào ngôn ngữ để bật hoặc tắt.";
 "Tap a subscription to update it. Swipe to delete." = "Vuốt để cập nhật hoặc xoá đăng ký.";
 "Tap an element to select it" = "Chạm vào phần tử để chọn";
 "Tap the top or bottom part of the page to scroll one screen." = "Chạm nửa trên hoặc nửa dưới trang để cuộn một màn hình.";
@@ -424,6 +433,7 @@
 "Touch to Turn Page" = "Chạm để lật trang";
 "Translate" = "Dịch";
 "Translate to" = "Dịch sang";
+"Translate to %@" = "Dịch sang %@";
 "Translate whole pages on device. Nothing is sent to Google." = "Dịch cả trang ngay trên máy. Không gửi gì cho Google.";
 "Translation Only" = "Chỉ bản dịch";
 "Translation runs on device with Apple's offline translator (iOS 18+). No page content is sent to Google or any server." = "Dịch chạy trên máy bằng bộ dịch ngoại tuyến của Apple (iOS 18+). Nội dung trang không gửi cho Google hay máy chủ nào.";
@@ -449,13 +459,15 @@
 "Version" = "Phiên bản";
 "Very Beginning" = "Ngay từ đầu";
 "Video" = "Video";
+"Video Acceleration" = "Tăng tốc tải video";
 "Video Compatibility Mode" = "Chế độ tương thích video";
 "Video Floating" = "Video nổi";
 "Video Gravity:" = "Tỉ lệ khung:";
 "Video Size:" = "Cỡ video:";
 "Video failed to play." = "Không phát được video.";
-"Videos you play open in a floating window at the top. Swipe up to close, swipe sideways to seek, pull down to shrink. In the small window: drag to move, swipe right to close, double tap to go back. Long press the floating video button to turn this on or off." = "Video bạn phát sẽ mở trong cửa sổ nổi ở trên cùng. Vuốt lên để đóng, vuốt ngang để tua, kéo xuống để thu nhỏ. Ở cửa sổ nhỏ: kéo để di chuyển, vuốt phải để đóng, chạm hai lần để quay lại. Nhấn giữ nút video nổi để bật/tắt.";
+"Videos open in a floating window as soon as they start playing; video ads are left to finish first. Swipe sideways to seek, swipe up or down on the left for volume and on the right for brightness, swipe the middle up to close or down to shrink. In the small window: drag to move, swipe right to close, double tap to go back. Long press the floating video button to turn this on or off." = "Video tự mở trong cửa sổ nổi ngay khi bắt đầu phát; quảng cáo video được để chạy hết trước. Vuốt ngang để tua, vuốt dọc bên trái để chỉnh âm lượng, bên phải để chỉnh độ sáng, vuốt phần giữa lên để đóng hoặc xuống để thu nhỏ. Ở cửa sổ nhỏ: kéo để di chuyển, vuốt phải để đóng, chạm hai lần để quay lại. Nhấn giữ nút video nổi để bật/tắt.";
 "View Page Source" = "Xem mã nguồn";
+"Waiting for the video ad to finish…" = "Đang chờ quảng cáo video kết thúc…";
 "Wallpaper" = "Hình nền";
 "Wallpaper Mask" = "Độ tối hình nền";
 "Web pages and live subtitles will be translated into this language." = "Trang web và phụ đề trực tiếp sẽ được dịch sang ngôn ngữ này.";

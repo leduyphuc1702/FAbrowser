@@ -21,6 +21,16 @@ extension BrowserViewController: WKNavigationDelegate {
                 decisionHandler(.cancel, preferences)
                 return
             }
+            // Strip tracking parameters ($removeparam filter rules) before the page loads.
+            if action.targetFrame?.isMainFrame == true, (action.request.httpMethod ?? "GET") == "GET",
+               action.navigationType != .backForward, action.navigationType != .reload,
+               let clean = AdBlocker.shared.cleanedURL(url) {
+                decisionHandler(.cancel, preferences)
+                var req = action.request
+                req.url = clean
+                webView.load(req)
+                return
+            }
             decisionHandler(.allow, preferences)
             return
         }
@@ -61,6 +71,11 @@ extension BrowserViewController: WKNavigationDelegate {
         guard let tab = tabManager.tab(for: webView) else { return }
         tab.nextPageURL = nil
         tab.videos = []
+        tab.adNoticeShown = false
+        if tab.translateSuggested != nil {
+            tab.translateSuggested = nil
+            if tab === currentTab, !tab.translateActive { translateBar.hide() }
+        }
         if tab === currentTab {
             videoStateChanged()
             errorView.isHidden = true
@@ -90,7 +105,7 @@ extension BrowserViewController: WKNavigationDelegate {
         if let url = webView.url { FaviconManager.shared.icon(for: url) { [weak self] _ in self?.updateTopTabs() } }
         webView.scrollView.refreshControl?.endRefreshing()
         tabManager.scheduleSave()
-        if tab.translateActive { pageTranslator.pageLoaded(tab: tab) }
+        pageTranslator.pageLoaded(tab: tab)
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
@@ -229,6 +244,8 @@ extension BrowserViewController: WKScriptMessageHandler {
             handleVideoMessage(body, frame: message.frameInfo, tab: tab)
         case "trMore":
             pageTranslator.pump(tab: tab)
+        case "trReady":
+            pageTranslator.pageLoaded(tab: tab)
         case "popupBlocked":
             guard tab === currentTab else { return }
             let target = (body["url"] as? String).flatMap(URL.init(string:))

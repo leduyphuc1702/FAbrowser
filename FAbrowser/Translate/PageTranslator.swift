@@ -43,7 +43,11 @@ final class PageTranslator {
         if(!observer){ observer=new MutationObserver(function(){ if(applying||!active) return; clearTimeout(timer); timer=setTimeout(function(){ var before=units.length; scan(); if(units.length>before) post({type:'trMore'}); }, 700); });
           observer.observe(document.body,{childList:true,subtree:true,characterData:false}); }
         return units.length; },
-      sample:function(){ var t=(document.body&&document.body.innerText)||''; return {lang:(document.documentElement.lang||''), text:(document.title+'\n'+t).slice(0,3000)}; },
+      sample:function(){ var t;
+        // Already translated (e.g. restored by Back): detect from the original text, not our output.
+        if(units.some(function(u){ return u.done; })){ var o=[]; for(var i=0;i<units.length&&o.length<400;i++) o.push(units[i].orig.join('')); t=o.join('\n'); }
+        else t=(document.body&&document.body.innerText)||'';
+        return {lang:(document.documentElement.lang||''), text:(document.title+'\n'+t).slice(0,3000), pid:pid}; },
       collect:function(max){ var list=[]; for(var i=0;i<units.length;i++){ if(!units[i].done && !units[i].sent) list.push(i); }
         list.sort(function(a,b){ return dist(units[a])-dist(units[b]); });
         return list.slice(0,max).map(function(i){ units[i].sent=true; return {i:i, t:textOf(units[i])}; }); },
@@ -59,13 +63,35 @@ final class PageTranslator {
       pending:function(){ var n=0; units.forEach(function(u){ if(!u.done) n++; }); return n; },
       isActive:function(){ return active; }
     };
-    var st=null; window.addEventListener('scroll', function(){ if(!active) return; clearTimeout(st); st=setTimeout(function(){ post({type:'trMore'}); }, 400); }, {passive:true});
+    var st=null; window.addEventListener('scroll', function(){ if(!active) return; clearTimeout(st); st=setTimeout(function(){ post({type:'trMore'}); }, 250); }, {passive:true});
+    var pid=Math.random().toString(36).slice(2);
+    // Start as soon as the DOM is parsed instead of waiting for images and ads (didFinish).
+    function ready(){ post({type:'trReady'}); }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', ready); else ready();
+    window.addEventListener('pageshow', function(e){ if(e.persisted) post({type:'trReady'}); });
     })();
     """#
 
     // MARK: Control
 
-    /// Translates the current page of `tab`. Detects the source language from page text.
+    private var target: String { TranslateLanguages.normalize(Prefs.translateTarget) }
+
+    private func isCurrent(_ tab: Tab) -> Bool { tab === browser?.currentTab }
+
+    /// Reads a text sample of the page and detects its language.
+    private func detect(tab: Tab, completion: @escaping (_ source: String?, _ confident: Bool, _ pid: String, _ text: String) -> Void) {
+        tab.webView?.evaluateJavaScript("window.__faTr ? __faTr.sample() : null") { result, _ in
+            guard let d = result as? [String: Any] else { completion(nil, false, "", ""); return }
+            let text = d["text"] as? String ?? ""
+            let htmlLang = (d["lang"] as? String).map(TranslateLanguages.normalize) ?? ""
+            let detected = TranslateLanguages.detect(text)
+            let source = detected ?? (htmlLang.isEmpty ? nil : htmlLang)
+            let confident = source != nil && (text.count >= 60 && TranslateLanguages.detect(text, confidenceFor: source!) >= 0.6 || (!htmlLang.isEmpty && htmlLang == source))
+            completion(source, confident, d["pid"] as? String ?? "", text)
+        }
+    }
+
+    /// Translates the current page of `tab` (menu, suggestion bar, or automatically).
     @MainActor
     func translate(tab: Tab, userInitiated: Bool) {
         guard let wv = tab.webView, wv.url?.isWebURL == true else { return }
@@ -73,37 +99,49 @@ final class PageTranslator {
             if userInitiated { browser?.showAlert(L("Translate"), message: TranslationError.unavailableOS.localizedDescription) }
             return
         }
-        wv.evaluateJavaScript("window.__faTr ? __faTr.sample() : null") { [weak self, weak tab] result, _ in
-            guard let self, let tab, let d = result as? [String: Any] else { return }
-            let text = d["text"] as? String ?? ""
-            let htmlLang = (d["lang"] as? String).map(TranslateLanguages.normalize) ?? ""
-            let target = TranslateLanguages.normalize(Prefs.translateTarget)
-            let source = TranslateLanguages.detect(text) ?? (htmlLang.isEmpty ? nil : htmlLang)
+        detect(tab: tab) { [weak self, weak tab] source, _, _, _ in
+            guard let self, let tab else { return }
             guard let source else {
                 if userInitiated { Toast.show(L("Can't detect page language")) }
                 return
             }
-            if source == target {
-                if userInitiated { Toast.show(TranslationError.sameLanguage.localizedDescription) }
+            if source == self.target {
+                if userInitiated { Toast.show(TranslationError.sameLanguage.localizedDescription) } else if self.isCurrent(tab) { self.browser?.translateBar.hide() }
                 return
             }
-            tab.translateActive = true
-            tab.translatedFrom = source
-            self.browser?.translateBar.show(from: source, to: target, progress: 0)
-            Task { @MainActor in
-                let status = await TranslationService.shared.status(from: source, to: target)
-                if status == .unsupported {
-                    self.fail(tab: tab, TranslationError.unsupportedPair)
+            if userInitiated { Prefs.autoTranslateLangs.insert(source) }
+            self.start(tab: tab, source: source, userInitiated: userInitiated)
+        }
+    }
+
+    @MainActor
+    private func start(tab: Tab, source: String, userInitiated: Bool) {
+        guard let wv = tab.webView else { return }
+        let target = self.target
+        tab.translateActive = true
+        tab.translatedFrom = source
+        tab.translateSuggested = nil
+        if isCurrent(tab) { browser?.translateBar.show(from: source, to: target, progress: 0) }
+        Task { @MainActor in
+            let status = await TranslationService.shared.status(from: source, to: target)
+            // Automatic runs never prompt or alert: without an installed pack, offer it instead.
+            if !userInitiated && status != .installed {
+                tab.translateActive = false
+                tab.translateSuggested = source
+                if self.isCurrent(tab) { self.browser?.translateBar.showSuggestion(from: source, to: target, original: false) }
+                return
+            }
+            if status == .unsupported {
+                self.fail(tab: tab, TranslationError.unsupportedPair)
+                return
+            }
+            if status == .downloadable, let presenter = self.browser {
+                do { try await TranslationService.shared.prepare(from: source, to: target, presenter: presenter) } catch {
+                    self.fail(tab: tab, error)
                     return
                 }
-                if status == .downloadable, let presenter = self.browser {
-                    do { try await TranslationService.shared.prepare(from: source, to: target, presenter: presenter) } catch {
-                        self.fail(tab: tab, error)
-                        return
-                    }
-                }
-                wv.evaluateJavaScript("__faTr.start()") { _, _ in self.pump(tab: tab) }
             }
+            wv.evaluateJavaScript("__faTr.start()") { _, _ in self.pump(tab: tab, first: true) }
         }
     }
 
@@ -114,15 +152,16 @@ final class PageTranslator {
         browser?.showAlert(L("Translate"), message: error.localizedDescription)
     }
 
-    /// Translates batches until the page has nothing left (visible text first).
+    /// Translates batches until the page has nothing left (visible text first). The first batch
+    /// is small so the visible part of the page changes quickly.
     @MainActor
-    func pump(tab: Tab) {
+    func pump(tab: Tab, first: Bool = false) {
         guard let wv = tab.webView, tab.translateActive, let source = tab.translatedFrom else { return }
         let id = ObjectIdentifier(tab)
         if running.contains(id) { pendingMore.insert(id); return }
         running.insert(id)
-        let target = TranslateLanguages.normalize(Prefs.translateTarget)
-        wv.evaluateJavaScript("__faTr.collect(40)") { [weak self, weak tab] result, _ in
+        let target = self.target
+        wv.evaluateJavaScript("__faTr.collect(\(first ? 16 : 60))") { [weak self, weak tab] result, _ in
             guard let self, let tab else { return }
             let items = result as? [[String: Any]] ?? []
             guard !items.isEmpty else {
@@ -161,34 +200,91 @@ final class PageTranslator {
     }
 
     private func updateProgress(tab: Tab, done: Bool) {
-        guard let browser, tab === browser.currentTab, let source = tab.translatedFrom else { return }
+        guard let browser, tab === browser.currentTab, tab.translateActive, let source = tab.translatedFrom else { return }
         tab.webView?.evaluateJavaScript("__faTr.pending()") { r, _ in
             let pending = r as? Int ?? 0
             browser.translateBar.show(from: source, to: Prefs.translateTarget, progress: done || pending == 0 ? 1 : 0.5)
         }
     }
 
+    /// Stops translating this tab and puts the original text back.
     func restore(tab: Tab) {
         tab.translateActive = false
         tab.translatedFrom = nil
         tab.webView?.evaluateJavaScript("window.__faTr && __faTr.restore()")
-        browser?.translateBar.hide()
+        if isCurrent(tab) { browser?.translateBar.hide() }
     }
 
-    /// Called after a page in a translating tab finishes loading.
+    /// "Show Original": this page only; the bar stays so the user can switch back.
+    func showOriginal(tab: Tab) {
+        let source = tab.translatedFrom
+        restore(tab: tab)
+        tab.translateSuggested = source
+        tab.translateHandled = nil
+        if isCurrent(tab), let source { browser?.translateBar.showSuggestion(from: source, to: target, original: true) }
+    }
+
+    /// Closing the bar: stop translating this language automatically.
+    func dismiss(tab: Tab) {
+        if let source = tab.translatedFrom ?? tab.translateSuggested {
+            tab.translateDeclined.insert(source)
+            Prefs.autoTranslateLangs.remove(source)
+        }
+        tab.translateSuggested = nil
+        restore(tab: tab)
+    }
+
+    /// Accepting the suggestion: translate now, and every later page in that language.
+    @MainActor
+    func accept(tab: Tab) {
+        guard let source = tab.translateSuggested ?? tab.translatedFrom else { translate(tab: tab, userInitiated: true); return }
+        Prefs.autoTranslateLangs.insert(source)
+        tab.translateDeclined.remove(source)
+        start(tab: tab, source: source, userInitiated: true)
+    }
+
+    /// Called when a page's DOM is ready, when it is restored from the back/forward cache,
+    /// and after it finishes loading. Continues translation or offers it.
     @MainActor
     func pageLoaded(tab: Tab) {
-        guard tab.translateActive, Prefs.translateAutoContinue else {
-            if tab.translateActive { restore(tab: tab) }
+        guard TranslationService.isAvailable, let wv = tab.webView, wv.url?.isWebURL == true else { return }
+        if tab.translateActive && !Prefs.translateAutoContinue {
+            restore(tab: tab)
             return
         }
-        translate(tab: tab, userInitiated: false)
+        detect(tab: tab) { [weak self, weak tab] source, confident, pid, text in
+            guard let self, let tab else { return }
+            let key = pid + "|" + (tab.translateActive ? "1" : "0")
+            if !pid.isEmpty && tab.translateHandled == key { return }
+            tab.translateHandled = key
+            tab.translateSuggested = nil
+            let target = self.target
+            guard let source, source != target else {
+                if self.isCurrent(tab) { self.browser?.translateBar.hide() }
+                return
+            }
+            if tab.translateActive || Prefs.autoTranslateLangs.contains(source) {
+                self.start(tab: tab, source: source, userInitiated: false)
+                tab.translateHandled = pid + "|1"
+                return
+            }
+            guard Prefs.translateSuggest, confident, !tab.translateDeclined.contains(source) else {
+                if self.isCurrent(tab) { self.browser?.translateBar.hide() }
+                return
+            }
+            tab.translateSuggested = source
+            if self.isCurrent(tab) { self.browser?.translateBar.showSuggestion(from: source, to: target, original: false) }
+            TranslationService.shared.warmUp(from: source, to: target, sample: text)
+        }
     }
 }
 
 /// Banner shown at the top of the web content while a page is translated.
 final class TranslateBar: UIView {
+    enum Mode { case translating, suggest, original }
+    private(set) var mode = Mode.translating
     var onShowOriginal: (() -> Void)?
+    var onTranslate: (() -> Void)?
     var onClose: (() -> Void)?
     var onChangeTarget: (() -> Void)?
     var onVisibilityChange: (() -> Void)?
@@ -213,7 +309,10 @@ final class TranslateBar: UIView {
         label.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(changeTarget)))
         originalButton.setTitle(L("Show Original"), for: .normal)
         originalButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
-        originalButton.addAction(UIAction { [weak self] _ in self?.onShowOriginal?() }, for: .touchUpInside)
+        originalButton.addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            if self.mode == .translating { self.onShowOriginal?() } else { self.onTranslate?() }
+        }, for: .touchUpInside)
         closeButton.setImage(Theme.symbol("xmark", size: 12, weight: .bold), for: .normal)
         closeButton.tintColor = Theme.secondaryText
         closeButton.addAction(UIAction { [weak self] _ in self?.onClose?() }, for: .touchUpInside)
@@ -239,8 +338,23 @@ final class TranslateBar: UIView {
     @objc private func changeTarget() { onChangeTarget?() }
 
     func show(from: String, to: String, progress: Double) {
+        mode = .translating
         label.text = "\(TranslateLanguages.name(from)) → \(TranslateLanguages.name(to))"
+        originalButton.setTitle(L("Show Original"), for: .normal)
         if progress < 1 { spinner.startAnimating() } else { spinner.stopAnimating() }
+        appear()
+    }
+
+    /// "This page is in X. Translate to Y?" — or, after Show Original, a way back.
+    func showSuggestion(from: String, to: String, original: Bool) {
+        mode = original ? .original : .suggest
+        label.text = original ? TranslateLanguages.name(from) : LF("Page is in %@", TranslateLanguages.localizedName(from))
+        originalButton.setTitle(original ? L("Translate") : LF("Translate to %@", TranslateLanguages.localizedName(to)), for: .normal)
+        spinner.stopAnimating()
+        appear()
+    }
+
+    private func appear() {
         guard isHidden else { return }
         isHidden = false
         alpha = 0

@@ -17,6 +17,8 @@ struct DetectedVideo {
     var viewWidth: Double
     /// The play event followed a user tap within 1.5 s.
     var userGesture: Bool
+    /// Looks like a pre-roll/mid-roll ad (ad player classes, ad server, "Skip ad" overlay).
+    var isAd: Bool
 
     init?(message body: [String: Any], frame: WKFrameInfo?) {
         let s = body["src"] as? String ?? ""
@@ -33,6 +35,7 @@ struct DetectedVideo {
         loop = body["loop"] as? Bool ?? false
         viewWidth = body["vw"] as? Double ?? 0
         userGesture = body["gesture"] as? Bool ?? false
+        isAd = body["ad"] as? Bool ?? false
         self.frame = frame
     }
 
@@ -58,10 +61,25 @@ enum VideoSniffer {
     var sent={};
     function abs(u){ try{ return new URL(u, location.href).href; }catch(e){ return u||''; } }
     function srcOf(v){ var s=v.currentSrc||v.src; if(!s){ var so=v.querySelector('source[src]'); if(so) s=so.src; } return s||''; }
+    var AD_CLASS=/(^|[\s_-])(ad|ads|advert|advertisement|preroll|pre-roll|midroll|vast|vpaid|ima|sponsor|sponsored)([\s_-]|$)|ad-showing|ad-playing|ad-interrupting|adplaying|jw-flag-ads|vjs-ad-playing|ima-ad|videoAdUi|adContainer|ad_container|adsbygoogle/i;
+    var AD_HOST=/(doubleclick\.net|googlesyndication\.com|imasdk\.googleapis\.com|2mdn\.net|adnxs\.com|springserve|spotx|innovid|teads\.tv|adform|smartadserver|serving-sys|vidoomy|aniview|adtelligent|pubmatic|rubiconproject|criteo|exoclick|trafficjunky|juicyads|adsterra|admicro|adtima|eclick\.vn|ambientplatform|vliplatform|adsota)/i;
+    var AD_PATH=/[\/_.-](preroll|pre-roll|vast|adserver|ads?)[\/_.-]/i;
+    var AD_TEXT=/(^|\s)(ad|ads|quảng cáo|advertisement|sponsored|广告|広告|광고)(\s|$|·|:)|skip ad|bỏ qua|跳过|skip in|\bad\s*\d+\s*(of|\/)\s*\d+/i;
+    function isAd(v){
+      try{
+        var s=srcOf(v); if(s && s.indexOf('blob:')!==0 && (AD_HOST.test(s)||AD_PATH.test(s))) return true;
+        for(var e=v,i=0;e&&e!==document.body&&i<8;e=e.parentElement,i++){
+          var c=(typeof e.className==='string'?e.className:'')+' '+(e.id||''); if(AD_CLASS.test(c)) return true; }
+        // "Ad · 0:05", "Skip ad in 5", "Quảng cáo" overlays drawn around a short video.
+        var d=isFinite(v.duration)?v.duration:0;
+        if(d>0 && d<=90){ var box=v.parentElement; for(var k=0;k<3&&box&&box.parentElement&&box!==document.body;k++) box=box.parentElement;
+          if(box && AD_TEXT.test((box.innerText||'').slice(0,400))) return true; }
+      }catch(e){}
+      return false; }
     function info(v){ var r=v.getBoundingClientRect();
       return {time:v.currentTime||0, duration:isFinite(v.duration)?v.duration:0, playing:!v.paused&&!v.ended,
               w:v.videoWidth||r.width, h:v.videoHeight||r.height, poster:v.poster||'',
-              muted:!!v.muted, loop:!!v.loop, vw:r.width, gesture:(Date.now()-lastTouch)<1500}; }
+              muted:!!v.muted, loop:!!v.loop, vw:r.width, gesture:(Date.now()-lastTouch)<1500, ad:isAd(v)}; }
     var lastTouch=0; ['touchend','click','keydown'].forEach(function(t){ document.addEventListener(t,function(){ lastTouch=Date.now(); },{capture:true,passive:true}); });
     function report(src, v, reason){
       src=abs(src); var blob=!src || src.indexOf('blob:')===0 || src.indexOf('mediasource:')===0;
@@ -72,7 +90,10 @@ enum VideoSniffer {
       post(d);
     }
     document.addEventListener('play', function(e){ var v=e.target; if(!v||v.tagName!=='VIDEO') return;
-      if(window.__faV.takeover){ try{ v.pause(); }catch(x){} report(srcOf(v), v, 'replace'); return; }
+      if(window.__faV.takeover){
+        // Ads keep running (muted) so their countdown and "skip" button still work.
+        if(isAd(v)){ try{ v.muted=true; }catch(x){} report(srcOf(v), v, 'play'); return; }
+        try{ v.pause(); }catch(x){} report(srcOf(v), v, 'replace'); return; }
       report(srcOf(v), v, 'play'); }, true);
     document.addEventListener('loadedmetadata', function(e){ var v=e.target; if(v&&v.tagName==='VIDEO') report(srcOf(v), v, 'meta'); }, true);
 
@@ -81,11 +102,11 @@ enum VideoSniffer {
     try { var of=window.fetch; if(of) window.fetch=function(i){ try{ var u=typeof i==='string'?i:(i&&i.url); if(u && isM3U8(u)) report(u, null, 'net'); }catch(e){} return of.apply(this, arguments); }; } catch(e){}
 
     function all(){ return Array.prototype.slice.call(document.querySelectorAll('video')); }
-    function best(){ var vs=all(), p=vs.filter(function(v){ return !v.paused; }); if(p.length) return p[0];
+    function best(){ var vs=all().filter(function(v){ return !isAd(v); }); if(!vs.length) vs=all(); var p=vs.filter(function(v){ return !v.paused; }); if(p.length) return p[0];
       vs.sort(function(a,b){ return b.clientWidth*b.clientHeight-a.clientWidth*a.clientHeight; }); return vs[0]; }
     window.__faV={ takeover:false,
       list:function(){ return all().map(function(v){ var d=info(v); var s=abs(srcOf(v)); d.blob=!s||s.indexOf('blob:')===0; d.src=d.blob?'':s; d.page=location.href; d.title=document.title; return d; }); },
-      pause:function(){ all().forEach(function(v){ try{ v.pause(); }catch(e){} }); },
+      pause:function(){ all().forEach(function(v){ try{ if(isAd(v)) v.muted=true; else v.pause(); }catch(e){} }); },
       setTakeover:function(on){ this.takeover=!!on; if(on) this.pause(); return true; },
       resumeAt:function(t){ this.takeover=false; var v=best(); if(!v) return false; try{ if(t>0) v.currentTime=t; v.play(); }catch(e){} return true; },
       playing:function(){ return all().some(function(v){ return !v.paused && !v.ended; }); },

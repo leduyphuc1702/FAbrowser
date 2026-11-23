@@ -7,9 +7,16 @@ extension BrowserViewController {
     func setupMedia() {
         translateBar.onShowOriginal = { [weak self] in
             guard let self, let tab = self.currentTab else { return }
-            self.pageTranslator.restore(tab: tab)
+            self.pageTranslator.showOriginal(tab: tab)
         }
-        translateBar.onClose = translateBar.onShowOriginal
+        translateBar.onTranslate = { [weak self] in
+            guard let self, let tab = self.currentTab else { return }
+            self.pageTranslator.accept(tab: tab)
+        }
+        translateBar.onClose = { [weak self] in
+            guard let self, let tab = self.currentTab else { return }
+            self.pageTranslator.dismiss(tab: tab)
+        }
         translateBar.onChangeTarget = { [weak self] in self?.chooseTranslateTarget() }
         translateBar.onVisibilityChange = { [weak self] in
             guard let self else { return }
@@ -53,6 +60,8 @@ extension BrowserViewController {
     func mediaTabChanged(_ tab: Tab) {
         if tab.translateActive, let from = tab.translatedFrom {
             translateBar.show(from: from, to: Prefs.translateTarget, progress: 1)
+        } else if let s = tab.translateSuggested {
+            translateBar.showSuggestion(from: s, to: Prefs.translateTarget, original: false)
         } else {
             translateBar.hide()
         }
@@ -73,22 +82,57 @@ extension BrowserViewController {
         }
         guard tab === currentTab else { return }
         videoStateChanged()
+        guard Prefs.videoFloating else { return }
 
-        // "Allow Auto Replace Playing": a new video started in the page while the floating player is open.
-        if v.reason == "replace", floatingPlayer.isActive, Prefs.allowAutoReplace, v.src != nil, v.src != floatingPlayer.source?.url {
-            play(v, in: tab)
+        if v.isAd {
+            if v.reason == "play", !floatingPlayer.isActive, !tab.adNoticeShown {
+                tab.adNoticeShown = true
+                Toast.show(L("Waiting for the video ad to finish…"))
+            }
             return
         }
-        // "Video Floating": take over videos the user starts in the page.
-        if v.reason == "play", Prefs.videoFloating, !floatingPlayer.isActive, !v.isBlob, v.src != nil,
-           !v.muted, !v.loop, v.viewWidth == 0 || v.viewWidth >= 120, v.userGesture || v.duration > 45 {
-            play(v, in: tab)
+        // A stream played through MSE shows up as a blob; open the playlist the page fetched instead.
+        let target = v.isBlob ? streamCandidate(for: v, in: tab) : v
+        let fp = floatingPlayer
+        if fp.isActive {
+            guard let target, let url = target.src, url != fp.source?.url else { return }
+            // The window caught an ad (or a short teaser) first: switch to the real video once it starts.
+            let caughtShort = fp.duration > 0 && fp.duration <= 60 && (target.duration == 0 || target.duration > 60)
+            if (v.reason == "replace" && Prefs.allowAutoReplace) || (v.reason == "play" || v.reason == "replace") && caughtShort {
+                play(target, in: tab)
+            }
+            return
         }
+        // "Video Floating": open the window as soon as a real video starts playing.
+        let started: Bool = {
+            if v.reason == "play" { return true }
+            // m3u8 fetched after its blob <video> already started.
+            if v.reason == "net" { return tab.videos.contains { $0.isBlob && $0.playing && !$0.isAd && Date().timeIntervalSince($0.reportedAt) < 15 } }
+            return false
+        }()
+        guard started, let target, !v.loop, v.viewWidth == 0 || v.viewWidth >= 120,
+              v.reason == "net" || v.userGesture || !v.muted && (v.duration == 0 || v.duration > 45) else { return }
+        play(target, in: tab)
+    }
+
+    /// For a blob/MSE video, the most recent playlist URL the page requested, carrying the
+    /// blob video's position and frame.
+    private func streamCandidate(for v: DetectedVideo, in tab: Tab) -> DetectedVideo? {
+        if !v.isBlob { return v }
+        guard var s = tab.videos.last(where: { $0.reason == "net" && !$0.isBlob && !$0.isAd }) else { return nil }
+        if let blob = tab.videos.last(where: { $0.isBlob && !$0.isAd }) {
+            s.time = blob.time
+            s.duration = blob.duration
+            s.frame = blob.frame ?? s.frame
+            if s.title.isEmpty { s.title = blob.title }
+        }
+        return s
     }
 
     /// Best candidate for the floating button: the playing video, else the most recent non-stream one.
     private func candidates(for tab: Tab) -> [DetectedVideo] {
-        let playable = tab.videos.filter { !$0.isBlob }
+        let real = tab.videos.filter { !$0.isBlob && !$0.isAd }
+        let playable = real.isEmpty ? tab.videos.filter { !$0.isBlob } : real
         return playable.sorted { a, b in
             if a.playing != b.playing { return a.playing }
             return a.reportedAt > b.reportedAt
@@ -216,7 +260,8 @@ extension BrowserViewController {
         guard let tab = currentTab, tab.webView?.url?.isWebURL == true else { return }
         if tab.translateActive {
             let sheet = UIAlertController(title: L("Translate"), message: nil, preferredStyle: .actionSheet)
-            sheet.addAction(UIAlertAction(title: L("Show Original"), style: .default) { [weak self] _ in self?.pageTranslator.restore(tab: tab) })
+            sheet.addAction(UIAlertAction(title: L("Show Original"), style: .default) { [weak self] _ in self?.pageTranslator.showOriginal(tab: tab) })
+            sheet.addAction(UIAlertAction(title: L("Stop Translating"), style: .destructive) { [weak self] _ in self?.pageTranslator.dismiss(tab: tab) })
             sheet.addAction(UIAlertAction(title: L("Target Language") + ": " + TranslateLanguages.name(Prefs.translateTarget), style: .default) { [weak self] _ in self?.chooseTranslateTarget() })
             sheet.addAction(UIAlertAction(title: L("Cancel"), style: .cancel))
             presentSheet(sheet)

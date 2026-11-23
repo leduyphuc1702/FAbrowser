@@ -7,6 +7,7 @@ import UIKit
 ///   -FADark YES                         force dark appearance
 ///   -FAPlayURL https://…/video.mp4      open a video in the floating player (-FAScreen player.mini|player.full to change mode)
 ///   -FASkipOnboarding YES               don't show first-launch onboarding
+///   -FAThenURL https://…                load a second page 14 s after launch (-FAThenBack YES goes back at 26 s)
 /// Example: xcrun simctl launch booted com.fabrowser.app -FAScreen menu
 enum DebugLaunch {
     static var skipsOnboarding: Bool { UserDefaults.standard.bool(forKey: "FASkipOnboarding") || UserDefaults.standard.string(forKey: "FAScreen") != nil && UserDefaults.standard.string(forKey: "FAScreen") != "onboarding" }
@@ -20,6 +21,12 @@ enum DebugLaunch {
         if let s = d.string(forKey: "FAPlayURL"), let url = URL(string: s) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 browser.floatingPlayer.play(VideoSource(url: url, title: "Sample Video", pageURL: nil), in: browser)
+            }
+        }
+        if let s = d.string(forKey: "FAThenURL"), let url = URL(string: s) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 14) { browser.load(url) }
+            if d.bool(forKey: "FAThenBack") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 26) { browser.currentWebView?.goBack() }
             }
         }
         guard let screen = d.string(forKey: "FAScreen") else { return }
@@ -46,6 +53,7 @@ enum DebugLaunch {
             case "player.mini": browser.floatingPlayer.setMode(.mini)
             case "player.full": browser.floatingPlayer.setMode(.fullscreen)
             case "translatebar": browser.translateBar.show(from: "en", to: Prefs.translateTarget, progress: 0.5)
+            case "translate.accept": if let tab = browser.currentTab { browser.pageTranslator.accept(tab: tab) }
             case "subtitles":
                 browser.pageSubtitles.isHidden = false
                 browser.view.setNeedsLayout()
