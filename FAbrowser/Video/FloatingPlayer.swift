@@ -484,8 +484,11 @@ final class FloatingPlayerController: NSObject {
 
     @objc private func handlePan(_ g: UIPanGestureRecognizer) {
         guard let browser else { return }
-        let t = g.translation(in: browser.view)
-        let vel = g.velocity(in: browser.view)
+        // Fullscreen is landscape while the browser underneath stays portrait: measure in the
+        // fullscreen view, or a sideways swipe reads as vertical.
+        let space: UIView = mode == .fullscreen ? (contentView.superview ?? contentView) : browser.view
+        let t = g.translation(in: space)
+        let vel = g.velocity(in: space)
         switch g.state {
         case .began:
             if mode == .mini { panMode = 3; return }
