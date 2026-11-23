@@ -1,0 +1,30 @@
+name: FAbrowser
+options:
+  bundleIdPrefix: com.fabrowser
+  deploymentTarget:
+    iOS: "16.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+targets:
+  FAbrowser:
+    type: application
+    platform: iOS
+    sources:
+      - path: FAbrowser
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.fabrowser.app
+        INFOPLIST_FILE: FAbrowser/App/Info.plist
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "AppIcon-Black AppIcon-Green AppIcon-Red AppIcon-Orange AppIcon-Purple"
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
+        SUPPORTS_MACCATALYST: NO
+        ENABLE_PREVIEWS: NO
