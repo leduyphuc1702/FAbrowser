@@ -67,6 +67,7 @@
 "Blocked %@ from opening an app" = "Blocked %@ from opening an app";
 "Blocked a pop-up window" = "Blocked a pop-up window";
 "Blocks ads and trackers using content rules. Hidden elements are applied even when ad block is off." = "Blocks ads and trackers using content rules. Hidden elements are applied even when ad block is off.";
+"Blur tabs in App Switcher" = "Blur tabs in App Switcher";
 "Bookmarks" = "Bookmarks";
 "Bookmarks and history are kept." = "Bookmarks and history are kept.";
 "Bookmarks file detected.Would you like to import bookmarks from this file?" = "Bookmarks file detected. Would you like to import bookmarks from this file?";
@@ -80,7 +81,11 @@
 "Cancel" = "Cancel";
 "Cancel Download" = "Cancel Download";
 "Capture..." = "Capture...";
+"Caro" = "Caro";
+"Caro Lock" = "Caro Lock";
+"Caro Lock is on" = "Caro Lock is on";
 "Centered Search Box" = "Centered Search Box";
+"Change Unlock Moves" = "Change Unlock Moves";
 "Change file extension may also change the file type" = "Change file extension may also change the file type";
 "Choose Wallpaper" = "Choose Wallpaper";
 "Clear" = "Clear";
@@ -111,6 +116,8 @@
 "Code" = "Code";
 "Columns" = "Columns";
 "Compatibility" = "Compatibility";
+"Computer is thinking…" = "Computer is thinking…";
+"Computer wins!" = "Computer wins!";
 "Connection is not secure" = "Connection is not secure";
 "Connection is secure" = "Connection is secure";
 "Continue" = "Continue";
@@ -160,6 +167,7 @@
 "Downloading speech model… %d%%" = "Downloading speech model… %d%%";
 "Downloading… %d%%" = "Downloading… %d%%";
 "Downloads videos over several connections at once and fetches upcoming HLS segments ahead of time, so videos start sooner and seeking is smoother on the same connection. Turn off if a site's video won't play." = "Downloads videos over several connections at once and fetches upcoming HLS segments ahead of time, so videos start sooner and seeking is smoother on the same connection. Turn off if a site's video won't play.";
+"Draw" = "Draw";
 "Duplicate" = "Duplicate";
 "EasyList and ABPVN are built in and work offline. Enabled lists are refreshed every 4 days." = "EasyList and ABPVN are built in and work offline. Enabled lists are refreshed every 4 days.";
 "Edit" = "Edit";
@@ -204,7 +212,6 @@
 "Green" = "Green";
 "Hidden Elements" = "Hidden Elements";
 "Hide Element" = "Hide Element";
-"Hide content in App Switcher" = "Hide content in App Switcher";
 "Hide toolbars when scrolling" = "Hide toolbars when scrolling";
 "History" = "History";
 "Homepage" = "Homepage";
@@ -263,6 +270,7 @@
 "New Download" = "New Download";
 "New Extension" = "New Extension";
 "New Folder" = "New Folder";
+"New Game" = "New Game";
 "New Private Tab" = "New Private Tab";
 "New Speech Model" = "New Speech Model";
 "New Tab" = "New Tab";
@@ -316,6 +324,7 @@
 "Photo access denied" = "Photo access denied";
 "Picture in Picture" = "Picture in Picture";
 "Play in Webpage" = "Play in Webpage";
+"Play the same 3 moves again to confirm." = "Play the same 3 moves again to confirm.";
 "Play videos in a floating window, picture in picture and fullscreen gestures." = "Play videos in a floating window, picture in picture and fullscreen gestures.";
 "Playback" = "Playback";
 "Playback Rate" = "Playback Rate";
@@ -436,10 +445,12 @@
 "Tap a language to turn it on or off." = "Tap a language to turn it on or off.";
 "Tap a subscription to update it. Swipe to delete." = "Tap a subscription to update it. Swipe to delete.";
 "Tap an element to select it" = "Tap an element to select it";
+"Tap the 3 opening moves that will unlock FAbrowser. Order matters." = "Tap the 3 opening moves that will unlock FAbrowser. Order matters.";
 "Tap the top or bottom part of the page to scroll one screen." = "Tap the top or bottom part of the page to scroll one screen.";
 "Tap to set default. The switch controls whether the engine appears in the quick search bar above the keyboard." = "Tap to set default. The switch controls whether the engine appears in the quick search bar above the keyboard.";
 "Target Language" = "Target Language";
 "Text-Only" = "Text-Only";
+"The moves didn't match. Start again." = "The moves didn't match. Start again.";
 "The page is already in the target language." = "The page is already in the target language.";
 "Theme" = "Theme";
 "This language pair is not supported by offline translation." = "This language pair is not supported by offline translation.";
@@ -504,11 +515,15 @@
 "Within 1 Hour" = "Within 1 Hour";
 "Without app audio, subtitles can't hear videos played inside web pages or as streams. Tap Try Again and choose Allow." = "Without app audio, subtitles can't hear videos played inside web pages or as streams. Tap Try Again and choose Allow.";
 "Yesterday" = "Yesterday";
+"You %d – %d Computer" = "You %d – %d Computer";
 "You can change this later in Settings › Live Subtitles." = "You can change this later in Settings › Live Subtitles.";
+"You win!" = "You win!";
 "Your Language" = "Your Language";
+"Your turn (X)" = "Your turn (X)";
 "Zip" = "Zip";
 "Zipped" = "Zipped";
 "Zipping..." = "Zipping...";
+"caro_lock_footer" = "FAbrowser opens with a game of caro. The browser only opens when your first 3 moves match the ones you set, in order; any other opening just plays on as a normal game. Forgot them? Hold the game title for 3 seconds to use Face ID / passcode.";
 "clear_all_tabs_hint" = "Close all tabs?";
 "iOS 18+" = "iOS 18+";
 "iOS asks for confirmation before downloading. Packs can be removed in the iOS Settings app." = "iOS asks for confirmation before downloading. Packs can be removed in the iOS Settings app.";

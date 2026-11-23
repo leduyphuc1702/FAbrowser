@@ -111,7 +111,21 @@ final class SearchViewController: UIViewController, UITextFieldDelegate, UITable
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         field.becomeFirstResponder()
-        if initialText != nil { field.selectAll(nil) }
+        selectInitialText()
+        DispatchQueue.main.async { self.selectInitialText() }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        selectInitialText()
+    }
+
+    /// The current address starts out fully selected, ready to copy or to be typed over.
+    /// UIKit moves the caret to the end while the field is still being presented, so this repeats until it sticks.
+    private func selectInitialText() {
+        guard let initial = initialText, !initial.isEmpty, field.text == initial, field.isFirstResponder else { return }
+        let all = field.textRange(from: field.beginningOfDocument, to: field.endOfDocument)
+        if field.selectedTextRange != all { field.selectAll(nil) }
     }
 
     // MARK: Data

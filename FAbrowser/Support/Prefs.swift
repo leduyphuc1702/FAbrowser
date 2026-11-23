@@ -96,8 +96,10 @@ enum Prefs {
     // Privacy
     @Pref("clearHistoryOnExit", false) static var clearHistoryOnExit: Bool
     @Pref("clearPrivateOnExit", true) static var clearPrivateOnExit: Bool
-    @Pref("coverInBackground", false) static var coverInBackground: Bool
+    @Pref("coverInBackground", true) static var coverInBackground: Bool
     @Pref("requireUnlock", false) static var requireUnlock: Bool
+    @Pref("caroLock", false) static var caroLock: Bool
+    @Pref("caroLockMoves", "") static var caroLockMoves: String
     @Pref("allowClipboardRead", true) static var allowClipboardRead: Bool
 
     // Ad block

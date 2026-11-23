@@ -95,8 +95,8 @@ Chặn quảng cáo bằng `WKContentRuleList` của WebKit kết hợp script c
 | **Tìm kiếm** | Gợi ý tìm kiếm, khớp lịch sử và dấu trang, dán link vừa sao chép, phím tắt `https://` `www.` `.com`, đổi công cụ tìm kiếm nhanh |
 | **Tệp** | Trình tải xuống (tạm dừng/tiếp tục), thư mục, xem trước QuickLook, nén zip, truyền tệp qua Wi-Fi |
 | **Đọc** | Chế độ đọc có 6 chủ đề, chỉnh phông và cỡ chữ, tự nối trang kế tiếp |
-| **Riêng tư** | Khoá app bằng Face ID hoặc mật mã, che nội dung trong trình chuyển app, xoá dữ liệu theo loại |
-| **Tuỳ biến** | Ban đêm, dark mode cho trang, User Agent, tiện ích kiểu userscript, icon app thay thế, sao lưu và khôi phục, URL scheme `fabrowser://` |
+| **Riêng tư** | Khoá app bằng Face ID hoặc mật mã, Khoá Cờ Caro (một ván caro thật; chỉ mở trình duyệt khi 3 nước đầu đúng thứ tự đã đặt), làm mờ tab trong trình đa nhiệm, xoá dữ liệu theo loại |
+| **Tuỳ biến** | Ban đêm, dark mode cho trang, User Agent, tiện ích kiểu userscript, icon app thay thế (có icon cờ caro), sao lưu và khôi phục, URL scheme `fabrowser://` |
 
 ---
 
@@ -175,6 +175,7 @@ FAbrowser/
 │                   SenseVoice (sherpa-onnx + Silero VAD, tải mô hình)
 ├── Models/         TabManager, AdBlocker + ABPConverter, ScriptManager, Bookmark/History/Search stores
 ├── Settings/       Settings (khai báo bằng SettingRow), Onboarding, Extensions
+├── Lock/           CaroLock (luật caro + máy chơi, màn khoá, ghi 3 nước mở khoá)
 ├── Home/ Search/ Tabs/ Library/ Menu/ Files/ Tools/
 ├── Support/        Prefs (@Pref), Theme, L() localization, JSONStore, Toast
 └── Resources/      en.lproj, vi.lproj, Filters/ (EasyList, ABPVN)

@@ -277,8 +277,13 @@ final class SettingsViewController: UITableViewController, PHPickerViewControlle
             return [
                 SettingSection(title: L("Security"), footer: L("Require Face ID / Touch ID / passcode when opening FAbrowser."), rows: [
                     .toggle(L("App Lock"), get: { Prefs.requireUnlock }, set: { [weak self] on in self?.setAppLock(on) }),
-                    .toggle(L("Hide content in App Switcher"), get: { Prefs.coverInBackground }, set: { Prefs.coverInBackground = $0 }),
+                    .toggle(L("Blur tabs in App Switcher"), get: { Prefs.coverInBackground }, set: { Prefs.coverInBackground = $0 }),
                 ]),
+                SettingSection(footer: L("caro_lock_footer"), rows: [
+                    .toggle(L("Caro Lock"), get: { Prefs.caroLockPattern != nil }, set: { [weak self] on in self?.setCaroLock(on) }),
+                ] + (Prefs.caroLockPattern == nil ? [] : [
+                    .nav(L("Change Unlock Moves")) { vc in vc.recordCaroMoves() },
+                ])),
                 SettingSection(title: L("Privacy"), rows: [
                     .toggle(L("Read Clipboard"), get: { Prefs.allowClipboardRead }, set: { Prefs.allowClipboardRead = $0 }),
                     .toggle(L("Clear history on exit"), get: { Prefs.clearHistoryOnExit }, set: { Prefs.clearHistoryOnExit = $0 }),
@@ -601,9 +606,21 @@ final class SettingsViewController: UITableViewController, PHPickerViewControlle
         ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: L("Unlock FAbrowser")) { ok, _ in
             DispatchQueue.main.async {
                 Prefs.requireUnlock = ok
+                if ok { Prefs.caroLock = false }
                 self.rebuild()
             }
         }
+    }
+
+    private func setCaroLock(_ on: Bool) {
+        if on { recordCaroMoves() } else { Prefs.caroLock = false }
+        rebuild()
+    }
+
+    fileprivate func recordCaroMoves() {
+        let vc = CaroPatternViewController()
+        vc.onSaved = { [weak self] in self?.rebuild() }
+        navigationController?.pushViewController(vc, animated: true)
     }
 
     private enum ClearKind { case history, searches, cache, cookies, favicons, all }
@@ -942,7 +959,7 @@ enum SettingsIcon {
 }
 
 enum AppIcon: String, CaseIterable {
-    case standard, black, green, red, orange, purple
+    case standard, black, green, red, orange, purple, caro
 
     var iconName: String? {
         switch self {
@@ -952,7 +969,7 @@ enum AppIcon: String, CaseIterable {
     }
 
     var title: String {
-        [L("Default"), L("Black"), L("Green"), L("Red"), L("Orange"), L("Purple")][AppIcon.allCases.firstIndex(of: self)!]
+        [L("Default"), L("Black"), L("Green"), L("Red"), L("Orange"), L("Purple"), L("Caro")][AppIcon.allCases.firstIndex(of: self)!]
     }
 
     var color: UIColor {
@@ -963,6 +980,7 @@ enum AppIcon: String, CaseIterable {
         case .red: return .systemRed
         case .orange: return .systemOrange
         case .purple: return .systemPurple
+        case .caro: return CaroBoardView.xColor
         }
     }
 

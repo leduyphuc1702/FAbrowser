@@ -5,7 +5,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
     private var browser: BrowserViewController!
     private var coverView: UIView?
-    private var lockView: LockView?
+    private var lockView: UIView?
     private var pendingShortcut: UIApplicationShortcutItem?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
@@ -20,7 +20,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         NotificationCenter.default.addObserver(self, selector: #selector(prefsChanged(_:)), name: .prefsChanged, object: nil)
 
-        if Prefs.requireUnlock { showLock() }
+        if Prefs.requireUnlock || Prefs.caroLockPattern != nil { showLock() }
         if let url = connectionOptions.urlContexts.first?.url {
             browser.whenTabsReady { self.handle(url: url) }
         }
@@ -37,8 +37,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidBecomeActive(_ scene: UIScene) {
-        coverView?.removeFromSuperview()
-        coverView = nil
+        if let cover = coverView {
+            coverView = nil
+            UIView.animate(withDuration: 0.15, animations: { cover.alpha = 0 }) { _ in cover.removeFromSuperview() }
+        }
+        applyDisguiseIconOnce()
         if let item = pendingShortcut {
             pendingShortcut = nil
             browser.whenTabsReady { [browser] in browser?.handleShortcut(item.type) }
@@ -47,16 +50,16 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneWillResignActive(_ scene: UIScene) {
-        let shouldCover = Prefs.coverInBackground || browser.tabManager.isPrivate
-        guard shouldCover, coverView == nil, let window else { return }
-        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+        if Prefs.coverInBackground || browser.tabManager.isPrivate { showCover() }
+    }
+
+    /// Blurs the whole window so the App Switcher shows the tabs' colors but no readable content.
+    /// A caro lock screen is left visible: it gives nothing away.
+    func showCover() {
+        guard coverView == nil, !(lockView is CaroLockView), let window else { return }
+        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .regular))
         blur.frame = window.bounds
         blur.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        let icon = UIImageView(image: Theme.symbol("globe", size: 56, weight: .light))
-        icon.tintColor = Theme.accent
-        icon.center = CGPoint(x: blur.bounds.midX, y: blur.bounds.midY)
-        icon.autoresizingMask = [.flexibleTopMargin, .flexibleBottomMargin, .flexibleLeftMargin, .flexibleRightMargin]
-        blur.contentView.addSubview(icon)
         window.addSubview(blur)
         coverView = blur
     }
@@ -64,11 +67,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneDidEnterBackground(_ scene: UIScene) {
         browser.tabManager.saveNow()
         HistoryStore.shared.flush()
-        if Prefs.requireUnlock { showLock() }
+        if Prefs.requireUnlock || Prefs.caroLockPattern != nil { showLock() }
     }
 
     func sceneWillEnterForeground(_ scene: UIScene) {
-        lockView?.authenticate()
+        (lockView as? LockView)?.authenticate()
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {
@@ -104,19 +107,42 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         browser.openInNewTab(url)
     }
 
-    private func showLock() {
+    func showLock() {
         guard lockView == nil, let window else { return }
-        let lv = LockView(frame: window.bounds)
-        lv.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        lv.onUnlock = { [weak self] in
+        window.endEditing(true)
+        let unlock = { [weak self] in
             UIView.animate(withDuration: 0.2, animations: { self?.lockView?.alpha = 0 }) { _ in
                 self?.lockView?.removeFromSuperview()
                 self?.lockView = nil
             }
         }
+        if let pattern = Prefs.caroLockPattern {
+            let lv = CaroLockView(frame: window.bounds, pattern: pattern)
+            lv.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            lv.onUnlock = unlock
+            window.addSubview(lv)
+            lockView = lv
+            coverView?.removeFromSuperview()
+            coverView = nil
+            return
+        }
+        let lv = LockView(frame: window.bounds)
+        lv.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        lv.onUnlock = unlock
         window.addSubview(lv)
         lockView = lv
         if UIApplication.shared.applicationState == .active { lv.authenticate() }
+    }
+
+    /// The "Caro" build (FADisguise in Info.plist) switches to the caro icon on its first launch.
+    private func applyDisguiseIconOnce() {
+        let key = "disguiseIconApplied"
+        guard Bundle.main.object(forInfoDictionaryKey: "FADisguise") as? Bool == true,
+              !UserDefaults.standard.bool(forKey: key), UIApplication.shared.supportsAlternateIcons else { return }
+        UserDefaults.standard.set(true, forKey: key)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            UIApplication.shared.setAlternateIconName(AppIcon.caro.iconName) { _ in }
+        }
     }
 }
 

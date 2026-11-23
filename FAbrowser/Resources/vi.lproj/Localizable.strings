@@ -67,6 +67,7 @@
 "Blocked %@ from opening an app" = "Đã chặn %@ tự mở ứng dụng";
 "Blocked a pop-up window" = "Đã chặn một cửa sổ bật lên";
 "Blocks ads and trackers using content rules. Hidden elements are applied even when ad block is off." = "Chặn quảng cáo và trình theo dõi bằng quy tắc nội dung. Phần tử đã ẩn vẫn được áp dụng khi tắt chặn quảng cáo.";
+"Blur tabs in App Switcher" = "Làm mờ tab trong trình đa nhiệm";
 "Bookmarks" = "Dấu trang";
 "Bookmarks and history are kept." = "Dấu trang và lịch sử được giữ lại.";
 "Bookmarks file detected.Would you like to import bookmarks from this file?" = "Phát hiện tệp dấu trang. Bạn có muốn nhập dấu trang từ tệp này?";
@@ -80,7 +81,11 @@
 "Cancel" = "Huỷ";
 "Cancel Download" = "Huỷ tải về";
 "Capture..." = "Đang chụp...";
+"Caro" = "Cờ Caro";
+"Caro Lock" = "Khoá Cờ Caro";
+"Caro Lock is on" = "Đã bật Khoá Cờ Caro";
 "Centered Search Box" = "Ô tìm kiếm ở giữa";
+"Change Unlock Moves" = "Đổi nước mở khoá";
 "Change file extension may also change the file type" = "Đổi phần mở rộng có thể làm thay đổi loại tệp";
 "Choose Wallpaper" = "Chọn hình nền";
 "Clear" = "Xoá";
@@ -111,6 +116,8 @@
 "Code" = "Mã";
 "Columns" = "Số cột";
 "Compatibility" = "Tương thích";
+"Computer is thinking…" = "Máy đang nghĩ…";
+"Computer wins!" = "Máy thắng!";
 "Connection is not secure" = "Kết nối không an toàn";
 "Connection is secure" = "Kết nối an toàn";
 "Continue" = "Tiếp tục";
@@ -160,6 +167,7 @@
 "Downloading speech model… %d%%" = "Đang tải mô hình giọng nói… %d%%";
 "Downloading… %d%%" = "Đang tải… %d%%";
 "Downloads videos over several connections at once and fetches upcoming HLS segments ahead of time, so videos start sooner and seeking is smoother on the same connection. Turn off if a site's video won't play." = "Tải video qua nhiều kết nối cùng lúc và tải trước các đoạn HLS sắp phát, nên video mở nhanh hơn và tua mượt hơn trên cùng đường truyền. Tắt nếu video của trang nào đó không phát được.";
+"Draw" = "Hoà";
 "Duplicate" = "Nhân bản";
 "EasyList and ABPVN are built in and work offline. Enabled lists are refreshed every 4 days." = "EasyList và ABPVN được tích hợp sẵn, hoạt động ngoại tuyến. Danh sách đang bật được làm mới mỗi 4 ngày.";
 "Edit" = "Sửa";
@@ -204,7 +212,6 @@
 "Green" = "Xanh lá";
 "Hidden Elements" = "Phần tử đã ẩn";
 "Hide Element" = "Ẩn phần tử";
-"Hide content in App Switcher" = "Ẩn nội dung trong trình chuyển ứng dụng";
 "Hide toolbars when scrolling" = "Ẩn thanh công cụ khi cuộn";
 "History" = "Lịch sử";
 "Homepage" = "Trang chủ";
@@ -263,6 +270,7 @@
 "New Download" = "Tải xuống mới";
 "New Extension" = "Tiện ích mới";
 "New Folder" = "Thư mục mới";
+"New Game" = "Ván mới";
 "New Private Tab" = "Tab riêng tư mới";
 "New Speech Model" = "Mô hình giọng nói mới";
 "New Tab" = "Tab mới";
@@ -316,6 +324,7 @@
 "Photo access denied" = "Không có quyền truy cập Ảnh";
 "Picture in Picture" = "Hình trong hình";
 "Play in Webpage" = "Phát trong trang web";
+"Play the same 3 moves again to confirm." = "Đi lại đúng 3 nước đó để xác nhận.";
 "Play videos in a floating window, picture in picture and fullscreen gestures." = "Phát video trong cửa sổ nổi, hình trong hình và cử chỉ toàn màn hình.";
 "Playback" = "Phát lại";
 "Playback Rate" = "Tốc độ phát";
@@ -436,10 +445,12 @@
 "Tap a language to turn it on or off." = "Chạm vào ngôn ngữ để bật hoặc tắt.";
 "Tap a subscription to update it. Swipe to delete." = "Vuốt để cập nhật hoặc xoá đăng ký.";
 "Tap an element to select it" = "Chạm vào phần tử để chọn";
+"Tap the 3 opening moves that will unlock FAbrowser. Order matters." = "Chạm 3 nước đi đầu tiên dùng để mở khoá FAbrowser. Thứ tự rất quan trọng.";
 "Tap the top or bottom part of the page to scroll one screen." = "Chạm nửa trên hoặc nửa dưới trang để cuộn một màn hình.";
 "Tap to set default. The switch controls whether the engine appears in the quick search bar above the keyboard." = "Chạm để đặt mặc định. Công tắc quyết định công cụ có hiện trên thanh tìm nhanh phía trên bàn phím hay không.";
 "Target Language" = "Ngôn ngữ đích";
 "Text-Only" = "Không ảnh";
+"The moves didn't match. Start again." = "Nước đi không khớp. Làm lại từ đầu.";
 "The page is already in the target language." = "Trang đã ở ngôn ngữ đích.";
 "Theme" = "Chủ đề";
 "This language pair is not supported by offline translation." = "Cặp ngôn ngữ này không được hỗ trợ dịch ngoại tuyến.";
@@ -504,11 +515,15 @@
 "Within 1 Hour" = "Trong 1 giờ";
 "Without app audio, subtitles can't hear videos played inside web pages or as streams. Tap Try Again and choose Allow." = "Không có âm thanh của app thì phụ đề không nghe được video phát trong trang web hoặc video dạng stream. Chạm Thử lại rồi chọn Cho phép.";
 "Yesterday" = "Hôm qua";
+"You %d – %d Computer" = "Bạn %d – %d Máy";
 "You can change this later in Settings › Live Subtitles." = "Bạn có thể đổi sau trong Cài đặt › Phụ đề trực tiếp.";
+"You win!" = "Bạn thắng!";
 "Your Language" = "Ngôn ngữ của bạn";
+"Your turn (X)" = "Lượt của bạn (X)";
 "Zip" = "Nén";
 "Zipped" = "Đã nén";
 "Zipping..." = "Đang nén...";
+"caro_lock_footer" = "Khi mở FAbrowser sẽ hiện một ván cờ caro. Trình duyệt chỉ mở nếu 3 nước đầu tiên của bạn đúng thứ tự đã đặt; đi khác thì ván cờ tiếp tục như bình thường. Quên nước đi: giữ tiêu đề trò chơi 3 giây để mở bằng Face ID / mật mã.";
 "clear_all_tabs_hint" = "Đóng tất cả tab?";
 "iOS 18+" = "iOS 18+";
 "iOS asks for confirmation before downloading. Packs can be removed in the iOS Settings app." = "iOS sẽ hỏi xác nhận trước khi tải. Có thể xoá gói trong ứng dụng Cài đặt.";

@@ -27,7 +27,7 @@ targets:
         INFOPLIST_FILE: FAbrowser/App/Info.plist
         TARGETED_DEVICE_FAMILY: "1,2"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "AppIcon-Black AppIcon-Green AppIcon-Red AppIcon-Orange AppIcon-Purple"
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "AppIcon-Black AppIcon-Green AppIcon-Red AppIcon-Orange AppIcon-Purple AppIcon-Caro"
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
         SUPPORTS_MACCATALYST: NO
         ENABLE_PREVIEWS: NO

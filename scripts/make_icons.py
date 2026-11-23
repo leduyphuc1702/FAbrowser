@@ -12,6 +12,7 @@ VARIANTS = {
     "AppIcon-Red": ((255, 82, 82), (210, 30, 50)),
     "AppIcon-Orange": ((255, 159, 10), (240, 110, 0)),
     "AppIcon-Purple": ((175, 82, 222), (110, 50, 190)),
+    "AppIcon-Caro": None,
 }
 
 def font(size):
@@ -46,10 +47,32 @@ def icon(top, bottom):
     d.text(((S - w) / 2, S - 215), text, font=f, fill=(255, 255, 255, 255))
     return img
 
+def caro_icon():
+    """Disguise icon: a caro board with a winning row of X."""
+    img = Image.new("RGB", (S, S), (250, 240, 218))
+    d = ImageDraw.Draw(img, "RGBA")
+    n, margin = 7, 92
+    cell = (S - 2 * margin) / n
+    for k in range(n + 1):
+        v = margin + k * cell
+        d.line((margin, v, S - margin, v), fill=(184, 160, 124, 255), width=10)
+        d.line((v, margin, v, S - margin), fill=(184, 160, 124, 255), width=10)
+    def box(r, c, pad=0.2):
+        x, y = margin + c * cell, margin + r * cell
+        return (x + cell * pad, y + cell * pad, x + cell * (1 - pad), y + cell * (1 - pad))
+    for r, c in [(1, 5), (2, 4), (4, 2), (5, 1), (2, 2), (4, 4)]:
+        d.ellipse(box(r, c, 0.22), outline=(33, 92, 204, 255), width=22)
+    d.rounded_rectangle((margin + cell * 1.06, margin + 3 * cell + cell * 0.08, margin + cell * 5.94, margin + 4 * cell - cell * 0.08), radius=24, fill=(255, 204, 0, 120))
+    for c in range(1, 6):
+        x1, y1, x2, y2 = box(3, c, 0.22)
+        d.line((x1, y1, x2, y2), fill=(217, 41, 46, 255), width=34)
+        d.line((x2, y1, x1, y2), fill=(217, 41, 46, 255), width=34)
+    return img
+
 def write_iconset(name, colors):
     folder = os.path.join(ROOT, f"{name}.appiconset")
     os.makedirs(folder, exist_ok=True)
-    icon(*colors).save(os.path.join(folder, "icon-1024.png"))
+    (caro_icon() if colors is None else icon(*colors)).save(os.path.join(folder, "icon-1024.png"))
     json.dump({"images": [{"filename": "icon-1024.png", "idiom": "universal", "platform": "ios", "size": "1024x1024"}],
                "info": {"author": "xcode", "version": 1}}, open(os.path.join(folder, "Contents.json"), "w"), indent=2)
 
@@ -73,7 +96,7 @@ write_color("AccentColor", (46, 124, 246), (64, 140, 255))
 for n, c in VARIANTS.items():
     folder = os.path.join(ROOT, f"{n}-Preview.imageset")
     os.makedirs(folder, exist_ok=True)
-    icon(*c).resize((180, 180), Image.LANCZOS).save(os.path.join(folder, "preview.png"))
+    (caro_icon() if c is None else icon(*c)).resize((180, 180), Image.LANCZOS).save(os.path.join(folder, "preview.png"))
     json.dump({"images": [{"filename": "preview.png", "idiom": "universal", "scale": "3x"}], "info": {"author": "xcode", "version": 1}},
               open(os.path.join(folder, "Contents.json"), "w"), indent=2)
 print("ok")

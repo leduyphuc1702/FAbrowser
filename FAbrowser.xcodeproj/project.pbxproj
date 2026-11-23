@@ -36,6 +36,7 @@
 		909515A40C5B6D3E125CDD49 /* BookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA451432E4765C58617A3947 /* BookmarkStore.swift */; };
 		96EB4F4B47ED6FB4C728198C /* LibraryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238B33564BD9CF984F33A1D0 /* LibraryViewController.swift */; };
 		9AA7B99345CDDCED8C63FE62 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F05F139A5E596CB3600E80 /* Theme.swift */; };
+		9D15ABB784F9DEA197AB35B7 /* CaroLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA83BA1263A4AE57834343E5 /* CaroLock.swift */; };
 		9EA5BDE194897B3E63BD06A3 /* BrowserViewController+Media.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB6DFA71C2B49D74A5806C54 /* BrowserViewController+Media.swift */; };
 		A1A4535193F28790E35AD666 /* TabToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE689106E8B08ED7007454C /* TabToolbar.swift */; };
 		A2C963C809ABF49B6EA7FE81 /* SpeechChannels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54AE4723EE52C32652268BA9 /* SpeechChannels.swift */; };
@@ -121,6 +122,7 @@
 		C94D1E28089B7705AEC2E3DC /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		C99EED0E108038B6953CECA8 /* TranslationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationService.swift; sourceTree = "<group>"; };
 		C9AF226D4B220929575D0DD2 /* FaviconManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaviconManager.swift; sourceTree = "<group>"; };
+		CA83BA1263A4AE57834343E5 /* CaroLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaroLock.swift; sourceTree = "<group>"; };
 		CCD05806EA16C08FD65A9363 /* FilesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesViewController.swift; sourceTree = "<group>"; };
 		D0F05F139A5E596CB3600E80 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		D7CEE6A746AD9809224F58CF /* BrowserViewController+Actions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserViewController+Actions.swift"; sourceTree = "<group>"; };
@@ -216,6 +218,7 @@
 				AF7F0DD16974295A38E34DC8 /* Files */,
 				933048285DBC79915D297CC4 /* Home */,
 				54F3B32F8D0429A44816E024 /* Library */,
+				7D1741B0FFA4AF5D6EEBC313 /* Lock */,
 				5C378F1EB1D0A0AA3D3D8F68 /* Menu */,
 				2B84B98A0E6C6914D972C89E /* Models */,
 				DD00271745749514D07D47CB /* Resources */,
@@ -290,6 +293,14 @@
 				7B2AA6034928C95F9D53D807 /* SearchViewController.swift */,
 			);
 			path = Search;
+			sourceTree = "<group>";
+		};
+		7D1741B0FFA4AF5D6EEBC313 /* Lock */ = {
+			isa = PBXGroup;
+			children = (
+				CA83BA1263A4AE57834343E5 /* CaroLock.swift */,
+			);
+			path = Lock;
 			sourceTree = "<group>";
 		};
 		8454E2C4DD4404716C561526 /* Support */ = {
@@ -457,6 +468,7 @@
 				9EA5BDE194897B3E63BD06A3 /* BrowserViewController+Media.swift in Sources */,
 				2879C722D30EF772050427C2 /* BrowserViewController+Web.swift in Sources */,
 				8BD4B52203A538989C3C832B /* BrowserViewController.swift in Sources */,
+				9D15ABB784F9DEA197AB35B7 /* CaroLock.swift in Sources */,
 				8B08343F2F45EB6B57600D07 /* DebugLaunch.swift in Sources */,
 				097B3AEA353282EC89112EB8 /* DownloadManager.swift in Sources */,
 				12F01482BFDF5C8F1E66F7F0 /* Extensions.swift in Sources */,
@@ -582,7 +594,7 @@
 		5114DE982028EE790F9B2AC4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-Black AppIcon-Green AppIcon-Red AppIcon-Orange AppIcon-Purple";
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-Black AppIcon-Green AppIcon-Red AppIcon-Orange AppIcon-Purple AppIcon-Caro";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
@@ -666,7 +678,7 @@
 		C62966F282328F15C0FA1AD7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-Black AppIcon-Green AppIcon-Red AppIcon-Orange AppIcon-Purple";
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-Black AppIcon-Green AppIcon-Red AppIcon-Orange AppIcon-Purple AppIcon-Caro";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";

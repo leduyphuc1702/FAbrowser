@@ -8,6 +8,7 @@ import UIKit
 ///   -FAPlayURL https://…/video.mp4      open a video in the floating player (-FAScreen player.mini|player.full to change mode)
 ///   -FASkipOnboarding YES               don't show first-launch onboarding
 ///   -FAThenURL https://…                load a second page 14 s after launch (-FAThenBack YES goes back at 26 s)
+///   -FAScreen caro.lock -FACaroPlay 50,51,52  show the caro lock and play those cells
 ///   -FAPlayTitle "…"                    title for -FAPlayURL; -FALiveSubs YES starts live subtitles on it
 /// Example: xcrun simctl launch booted com.fabrowser.app -FAScreen menu
 enum DebugLaunch {
@@ -63,6 +64,24 @@ enum DebugLaunch {
                 browser.view.setNeedsLayout()
                 browser.pageSubtitles.show(original: "Welcome back to the channel, today we are testing live subtitles.", translated: "Chào mừng trở lại kênh, hôm nay chúng ta thử phụ đề trực tiếp.", mode: .bilingual)
             case "livesubs.page": browser.toggleSubtitles(forPlayer: false)
+            case "urlbar": browser.urlBarDidTapLocation(browser.urlBar)
+            case "cover": (browser.view.window?.windowScene?.delegate as? SceneDelegate)?.showCover()
+            case "caro.setup":
+                browser.presentSettings(open: .privacy)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    guard let nav = browser.presentedViewController as? UINavigationController else { return }
+                    nav.pushViewController(CaroPatternViewController(), animated: false)
+                }
+            case "caro.lock":
+                (browser.view.window?.windowScene?.delegate as? SceneDelegate)?.showLock()
+                // -FACaroPlay 50,51,52: taps those cells one after another, as the player would.
+                let taps = (d.string(forKey: "FACaroPlay") ?? "").split(separator: ",").compactMap { Int($0) }
+                for (k, i) in taps.enumerated() {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1 + Double(k) * 0.8) {
+                        func find(_ v: UIView) -> CaroLockView? { (v as? CaroLockView) ?? v.subviews.lazy.compactMap(find).first }
+                        if let w = browser.view.window, let lock = find(w) { lock.debugTap(i) } else { NSLog("[caro] unlocked before tap %d", i) }
+                    }
+                }
             case "player.subtitles":
                 browser.floatingPlayer.setSubtitlesShown(true)
                 browser.floatingPlayer.subtitleView.show(original: "今日はいい天気ですね。", translated: "Hôm nay trời đẹp nhỉ.", mode: LiveSubtitles.shared.mode)
