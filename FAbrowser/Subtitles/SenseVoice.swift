@@ -338,7 +338,7 @@ final class MonoResampler: @unchecked Sendable {
 // MARK: - Channel
 
 /// Near-real-time captions from an offline model: the VAD cuts the audio into utterances; the one
-/// in progress is re-decoded every 0.4 s (cheap: SenseVoice is non-autoregressive) and each
+/// in progress is re-decoded every 0.3 s (cheap: SenseVoice is non-autoregressive) and each
 /// finished utterance is decoded once more as final text. With no language given it detects it.
 final class SenseVoiceChannel: SpeechChannel {
     private(set) var locale: String
@@ -455,12 +455,12 @@ final class SenseVoiceChannel: SpeechChannel {
             buffer.removeFirst(drop)
             vadOffset = max(0, vadOffset - drop)
         }
-        if speaking, now - lastPartialAt >= 0.4, buffer.count - lastPartialSamples >= 3200 {
+        if speaking, now - lastPartialAt >= 0.3, buffer.count - lastPartialSamples >= 3200 {
             lastPartialAt = now
             lastPartialSamples = buffer.count
             if let r = SenseVoiceEngine.shared.decode(buffer, language: decodeLanguage) { inProgress(r, seconds: Double(buffer.count) / 16000) }
         }
-        if held != nil, !speaking, now - heldAt >= 0.9 { releaseHeld(endsSentence: true) }
+        if held != nil, !speaking, now - heldAt >= 0.7 { releaseHeld(endsSentence: true) }
     }
 
     private func speechBegan() {
@@ -512,6 +512,11 @@ final class SenseVoiceChannel: SpeechChannel {
         }
         held = (body, end)
         heldAt = ProcessInfo.processInfo.systemUptime
+        // A punctuated, self-contained utterance keeps its ending whatever follows: show it now.
+        if end != nil, !Self.continues(body, language: language ?? "en") {
+            releaseHeld(endsSentence: true)
+            return
+        }
         DispatchQueue.main.async { [weak self] in self?.deliverPartial(body) }
     }
 
@@ -541,7 +546,7 @@ final class SenseVoiceChannel: SpeechChannel {
     /// Whether an utterance obviously stops mid-sentence, so the period the model added is wrong.
     private static func continues(_ text: String, language: String) -> Bool {
         switch language {
-        case "ja": return text.count < 4 || jaParticles.contains { text.hasSuffix($0) }
+        case "ja": return text.count < 4 || jaParticles.contains { text.hasSuffix($0) } || text.last.map("まっ".contains) == true
         case "zh", "yue": return text.count < 4 || text.last.map(zhOpen.contains) == true
         case "ko": return false
         default:

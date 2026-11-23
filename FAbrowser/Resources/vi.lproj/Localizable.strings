@@ -31,6 +31,7 @@
 "All Pause" = "Tạm dừng tất cả";
 "All Resume" = "Tiếp tục tất cả";
 "Allow" = "Cho phép";
+"Allow App Audio" = "Cho phép âm thanh của app";
 "Allow Auto Replace Playing" = "Cho phép tự thay video đang phát";
 "Always Translate" = "Luôn dịch";
 "App Icon" = "Biểu tượng ứng dụng";
@@ -41,7 +42,6 @@
 "Are you sure to clear?" = "Bạn có chắc muốn xoá?";
 "Are you sure to delete?" = "Bạn có chắc muốn xoá?";
 "Audio capture is not available on this device." = "Thiết bị không hỗ trợ thu âm thanh.";
-"Audio capture was denied." = "Quyền thu âm thanh bị từ chối.";
 "Authentication" = "Xác thực";
 "Authentication required" = "Yêu cầu xác thực";
 "Author" = "Tác giả";
@@ -121,6 +121,7 @@
 "Copy Link" = "Sao chép liên kết";
 "Copy Link Text" = "Sao chép văn bản liên kết";
 "Copy URL" = "Sao chép URL";
+"Couldn't capture the app's audio." = "Không lấy được âm thanh của app.";
 "Couldn't download the speech model." = "Không tải được mô hình giọng nói.";
 "Couldn't load the speech model." = "Không tải được mô hình giọng nói.";
 "Create Backup" = "Tạo bản sao lưu";
@@ -268,6 +269,7 @@
 "Night" = "Ban đêm";
 "Night Mode" = "Ban đêm";
 "No Active Extension Hint" = "Trang này không có tiện ích chủ động. Thêm tiện ích trong Tiện ích JavaScript và bật \"Tiện ích chủ động\".";
+"No Audio for Subtitles" = "Phụ đề chưa có âm thanh";
 "No Image Found" = "Không tìm thấy ảnh";
 "No hidden elements." = "Chưa có phần tử nào bị ẩn.";
 "No local downloads." = "Chưa có tệp tải xuống.";
@@ -422,7 +424,9 @@
 "Stop Translating" = "Ngừng dịch";
 "Streaming Video" = "Video phát trực tuyến";
 "Stretch" = "Kéo giãn";
+"Subtitles can't hear this video. Tap here to allow audio." = "Phụ đề không nghe được video này. Chạm vào đây để cho phép âm thanh.";
 "Subtitles for any video, translated into your language." = "Phụ đề cho mọi video, dịch sang ngôn ngữ của bạn.";
+"Subtitles for this video listen to FAbrowser's own sound. iOS will next ask to record the screen: tap Allow. Only the app's audio is used, for subtitles, and nothing is recorded or saved." = "Phụ đề cho video này cần nghe âm thanh do chính FAbrowser phát ra. Tiếp theo iOS sẽ hỏi quyền ghi màn hình: hãy chọn Cho phép. App chỉ dùng âm thanh của app để làm phụ đề, không ghi lại hay lưu gì cả.";
 "Swap Home and Tabs buttons" = "Đổi chỗ nút Trang chủ và Tab";
 "Swipe back from anywhere" = "Vuốt quay lại từ bất kỳ đâu";
 "System" = "Hệ thống";
@@ -453,8 +457,10 @@
 "Translate whole pages on device. Nothing is sent to Google." = "Dịch cả trang ngay trên máy. Không gửi gì cho Google.";
 "Translation Only" = "Chỉ bản dịch";
 "Translation runs on device with Apple's offline translator (iOS 18+). No page content is sent to Google or any server." = "Dịch chạy trên máy bằng bộ dịch ngoại tuyến của Apple (iOS 18+). Nội dung trang không gửi cho Google hay máy chủ nào.";
+"Try Again" = "Thử lại";
 "Try Switching to Desktop" = "Thử chuyển sang bản máy tính";
 "Try again" = "Thử lại";
+"Turn Off" = "Tắt";
 "Turn Off Live Subtitles" = "Tắt phụ đề trực tiếp";
 "Turn On Video Compatibility Mode" = "Bật chế độ tương thích video";
 "Turns the speech in a playing video into subtitles and translates them into your language, on device. Start it from the Toolbox or the subtitles button of the floating player." = "Chuyển lời nói trong video đang phát thành phụ đề và dịch sang ngôn ngữ của bạn, ngay trên máy. Bật từ Hộp công cụ hoặc nút phụ đề của trình phát nổi.";
@@ -495,6 +501,7 @@
 "Whitelist" = "Danh sách trắng";
 "Wi-Fi Transfer" = "Truyền qua Wi-Fi";
 "Within 1 Hour" = "Trong 1 giờ";
+"Without app audio, subtitles can't hear videos played inside web pages or as streams. Tap Try Again and choose Allow." = "Không có âm thanh của app thì phụ đề không nghe được video phát trong trang web hoặc video dạng stream. Chạm Thử lại rồi chọn Cho phép.";
 "Yesterday" = "Hôm qua";
 "You can change this later in Settings › Live Subtitles." = "Bạn có thể đổi sau trong Cài đặt › Phụ đề trực tiếp.";
 "Your Language" = "Ngôn ngữ của bạn";
@@ -504,4 +511,5 @@
 "clear_all_tabs_hint" = "Đóng tất cả tab?";
 "iOS 18+" = "iOS 18+";
 "iOS asks for confirmation before downloading. Packs can be removed in the iOS Settings app." = "iOS sẽ hỏi xác nhận trước khi tải. Có thể xoá gói trong ứng dụng Cài đặt.";
+"iOS isn't showing its permission prompt right now; it waits a few minutes after a refusal. Try again in a moment, or turn subtitles off and on later." = "Lúc này iOS chưa hiện lại hộp hỏi quyền; sau khi bị từ chối, iOS chờ vài phút mới hỏi lại. Hãy thử lại sau giây lát, hoặc tắt rồi bật lại phụ đề sau.";
 "qrcode.nocode" = "Không tìm thấy mã QR";

@@ -85,7 +85,7 @@ final class TranslationService {
     /// Cached strings are answered immediately; the rest is de-duplicated and, for larger
     /// batches, split across two translation sessions that run in parallel.
     @MainActor
-    func translate(_ texts: [String], from source: String, to target: String, cache store: Bool = true) async throws -> [String] {
+    func translate(_ texts: [String], from source: String, to target: String, cache store: Bool = true, slot: Int = 0) async throws -> [String] {
         let s = TranslateLanguages.normalize(source), t = TranslateLanguages.normalize(target)
         if s == t { return texts }
         let cache = TranslationCache.shared
@@ -97,7 +97,7 @@ final class TranslationService {
             if let c = cache.get(x, pair: pair) { out[i] = c } else if seen.insert(x).inserted { missing.append(x) }
         }
         guard !missing.isEmpty else { return out }
-        let translated = try await translateUncached(missing, s, t)
+        let translated = try await translateUncached(missing, s, t, slot: slot)
         var map: [String: String] = [:]
         for (k, x) in missing.enumerated() where k < translated.count {
             map[x] = translated[k]
@@ -108,13 +108,13 @@ final class TranslationService {
     }
 
     @MainActor
-    private func translateUncached(_ texts: [String], _ s: String, _ t: String) async throws -> [String] {
+    private func translateUncached(_ texts: [String], _ s: String, _ t: String, slot: Int) async throws -> [String] {
         #if DEBUG
         if UserDefaults.standard.bool(forKey: "FAFakeTranslate") { return texts.map { "[\(t)] " + $0 } }
         #endif
         if #available(iOS 18.0, *) {
             let pool = TranslationHostPool.shared
-            guard texts.count >= 16 else { return try await pool.host(source: s, target: t).translate(texts) }
+            guard texts.count >= 16 else { return try await pool.host(source: s, target: t, slot: slot).translate(texts) }
             let mid = texts.count / 2
             async let a = pool.host(source: s, target: t, slot: 0).translate(Array(texts[..<mid]))
             async let b = pool.host(source: s, target: t, slot: 1).translate(Array(texts[mid...]))

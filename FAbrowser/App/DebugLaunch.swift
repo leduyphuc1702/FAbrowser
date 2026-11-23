@@ -62,6 +62,7 @@ enum DebugLaunch {
                 browser.pageSubtitles.isHidden = false
                 browser.view.setNeedsLayout()
                 browser.pageSubtitles.show(original: "Welcome back to the channel, today we are testing live subtitles.", translated: "Chào mừng trở lại kênh, hôm nay chúng ta thử phụ đề trực tiếp.", mode: .bilingual)
+            case "livesubs.page": browser.toggleSubtitles(forPlayer: false)
             case "player.subtitles":
                 browser.floatingPlayer.setSubtitlesShown(true)
                 browser.floatingPlayer.subtitleView.show(original: "今日はいい天気ですね。", translated: "Hôm nay trời đẹp nhỉ.", mode: LiveSubtitles.shared.mode)
@@ -72,7 +73,23 @@ enum DebugLaunch {
                     "ua": .userAgent, "icon": .appIcon, "backup": .backup, "about": .about,
                 ]
                 browser.presentSettings(open: pages[String(s.dropFirst("settings.".count))])
+                if d.bool(forKey: "FASlide") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) { slideFirstSlider(in: browser.view.window) }
+                }
             default: break
+            }
+        }
+    }
+
+    /// -FASlide YES: drags the first slider on screen through its range, like a finger would.
+    private static func slideFirstSlider(in window: UIWindow?) {
+        func find(_ v: UIView) -> UISlider? { (v as? UISlider) ?? v.subviews.lazy.compactMap(find).first }
+        guard let w = window, let slider = find(w) else { NSLog("[debug] no slider"); return }
+        for i in 0...20 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.05) {
+                slider.value = slider.minimumValue + (slider.maximumValue - slider.minimumValue) * Float(i) / 20
+                slider.sendActions(for: .valueChanged)
+                if i == 20 { NSLog("[debug] slid to %.1f", slider.value) }
             }
         }
     }

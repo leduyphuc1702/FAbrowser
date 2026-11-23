@@ -71,10 +71,10 @@ final class LiveSubtitles: NSObject {
     private var tap: PlayerAudioTap?
     private weak var playerItem: AVPlayerItem?
     private var usingReplayKit = false
+    private(set) var audioCaptureFailed = false
     private var tick: Timer?
     private var lastInterimTranslate = Date.distantPast
     private var translateGeneration = 0
-    private var lastUpdate = Date()
 
     var mode: SubtitleMode { SubtitleMode(rawValue: Prefs.subtitleModeRaw) ?? .translation }
 
@@ -121,6 +121,7 @@ final class LiveSubtitles: NSObject {
             RPScreenRecorder.shared().stopCapture { _ in }
             usingReplayKit = false
         }
+        audioCaptureFailed = false
         overlay?.clear()
         let was = isOn
         isOn = false
@@ -194,24 +195,74 @@ final class LiveSubtitles: NSObject {
     }
 
     private func startReplayKit() {
-        guard !usingReplayKit else { return }
-        let rec = RPScreenRecorder.shared()
-        guard rec.isAvailable else {
-            overlay?.showStatus(L("Audio capture is not available on this device."))
+        guard !usingReplayKit, isOn else { return }
+        guard RPScreenRecorder.shared().isAvailable else {
+            overlay?.showStatus(L("Audio capture is not available on this device."), duration: 6)
             return
         }
+        // iOS words its prompt as screen recording; explain first so it isn't declined by mistake.
+        if !Prefs.appAudioAllowed, let top = topPresenter {
+            let a = UIAlertController(title: L("Allow App Audio"), message: L("Subtitles for this video listen to FAbrowser's own sound. iOS will next ask to record the screen: tap Allow. Only the app's audio is used, for subtitles, and nothing is recorded or saved."), preferredStyle: .alert)
+            a.addAction(UIAlertAction(title: L("Cancel"), style: .cancel) { [weak self] _ in self?.stop() })
+            a.addAction(UIAlertAction(title: L("Continue"), style: .default) { [weak self] _ in self?.beginCapture() })
+            top.present(a, animated: true)
+            return
+        }
+        beginCapture()
+    }
+
+    /// Asks iOS for the app's audio again, e.g. after the user declined.
+    func retryAudioCapture() {
+        guard isOn, !usingReplayKit else { return }
+        beginCapture()
+    }
+
+    private func beginCapture() {
+        guard isOn, !usingReplayKit else { return }
+        let rec = RPScreenRecorder.shared()
         rec.isMicrophoneEnabled = false
         usingReplayKit = true
+        audioCaptureFailed = false
+        let began = Date()
         rec.startCapture(handler: { [weak self] sample, type, error in
             guard error == nil, type == .audioApp, let self else { return }
             self.forEachSink { $0.append(sample) }
         }, completionHandler: { [weak self] error in
-            guard let error else { return }
             DispatchQueue.main.async {
-                self?.usingReplayKit = false
-                self?.overlay?.showStatus(L("Audio capture was denied.") + " " + error.localizedDescription)
+                guard let self else { return }
+                guard let error else { Prefs.appAudioAllowed = true; return }
+                self.usingReplayKit = false
+                guard self.isOn else { return }
+                self.captureFailed(error, prompted: Date().timeIntervalSince(began) > 1)
             }
         })
+    }
+
+    private func captureFailed(_ error: Error, prompted: Bool) {
+        audioCaptureFailed = true
+        overlay?.showStatus(L("Subtitles can't hear this video. Tap here to allow audio."), duration: 8)
+        let e = error as NSError
+        let declined = e.domain == RPRecordingErrorDomain && e.code == RPRecordingErrorCode.userDeclined.rawValue
+        let message: String
+        if declined {
+            // After a refusal iOS answers "declined" for a while without showing its prompt again.
+            message = prompted
+                ? L("Without app audio, subtitles can't hear videos played inside web pages or as streams. Tap Try Again and choose Allow.")
+                : L("iOS isn't showing its permission prompt right now; it waits a few minutes after a refusal. Try again in a moment, or turn subtitles off and on later.")
+        } else {
+            message = L("Couldn't capture the app's audio.") + " " + error.localizedDescription
+        }
+        guard let top = topPresenter else { return }
+        let a = UIAlertController(title: L("No Audio for Subtitles"), message: message, preferredStyle: .alert)
+        a.addAction(UIAlertAction(title: L("Turn Off"), style: .cancel) { [weak self] _ in self?.stop() })
+        a.addAction(UIAlertAction(title: L("Try Again"), style: .default) { [weak self] _ in self?.retryAudioCapture() })
+        top.present(a, animated: true)
+    }
+
+    private var topPresenter: UIViewController? {
+        guard var top = presenter, top.view.window != nil else { return nil }
+        while let p = top.presentedViewController, !p.isBeingDismissed { top = p }
+        return top
     }
 
     // MARK: Recognition
@@ -248,7 +299,7 @@ final class LiveSubtitles: NSObject {
             }
             guard gen == self.generation, self.isOn else { return }
             guard !made.isEmpty else {
-                self.overlay?.showStatus(L("Speech recognition is not available for this language."))
+                self.overlay?.showStatus(L("Speech recognition is not available for this language."), duration: 6)
                 return
             }
             made.forEach(self.wire)
@@ -363,6 +414,11 @@ final class LiveSubtitles: NSObject {
         self.provisional = provisional
         log("resolve \(ch.locale) provisional=\(provisional) after " + (firstHeard.map { String(format: "%.1fs", Date().timeIntervalSince($0)) } ?? "-") + " scores=" + channels.map { $0.locale + String(format: ":%.2f", LanguageGuess.score($0)) }.joined(separator: " "))
         overlay?.showStatus(SubtitleLanguages.name(ch.locale), duration: provisional ? 2 : 1.5)
+        if needsTranslation(ch.locale) {
+            // Load the translation model while the first sentence is still being spoken.
+            let from = SubtitleLanguages.translationCode(ch.locale), sample = ch.finalTranscript.isEmpty ? "OK" : ch.finalTranscript
+            Task { @MainActor in TranslationService.shared.warmUp(from: from, to: Prefs.translateTarget, sample: sample) }
+        }
         guard !provisional else { return }
         channels.filter { $0 !== ch }.forEach { $0.stop() }
         channels = [ch]
@@ -411,7 +467,6 @@ final class LiveSubtitles: NSObject {
         channels.forEach { $0.tick() }
         if channels.count > 1 { evaluateDetection() }
         if Date().timeIntervalSince(lastTextChange) > 1.4 { refreshDisplay() }
-        if Date().timeIntervalSince(lastUpdate) > 6 { overlay?.fadeOut() }
     }
 
     private func log(_ s: String) {
@@ -434,7 +489,6 @@ final class LiveSubtitles: NSObject {
     }
 
     private func textChanged() {
-        lastUpdate = Date()
         lastTextChange = Date()
         refreshDisplay()
     }
@@ -460,7 +514,7 @@ final class LiveSubtitles: NSObject {
             return
         }
         if !unit.stable {
-            guard Date().timeIntervalSince(lastInterimTranslate) > 0.8 else { return }
+            guard Date().timeIntervalSince(lastInterimTranslate) > 0.5 else { return }
             lastInterimTranslate = Date()
         } else {
             log("sentence: " + unit.text)
@@ -476,7 +530,7 @@ final class LiveSubtitles: NSObject {
         let mode = self.mode
         Task { @MainActor in
             do {
-                let out = try await TranslationService.shared.translate([text], from: SubtitleLanguages.translationCode(locale), to: Prefs.translateTarget, cache: final)
+                let out = try await TranslationService.shared.translate([text], from: SubtitleLanguages.translationCode(locale), to: Prefs.translateTarget, cache: final, slot: final ? 0 : 1)
                 // Results can arrive out of order; never replace a newer caption with an older one.
                 guard self.isOn, gen > self.displayedGeneration else { return }
                 self.displayedGeneration = gen
@@ -485,7 +539,7 @@ final class LiveSubtitles: NSObject {
                 guard self.isOn, gen > self.displayedGeneration else { return }
                 self.displayedGeneration = gen
                 self.overlay?.show(original: text, translated: nil, mode: .original)
-                if final { self.overlay?.showStatus(error.localizedDescription, duration: 3) }
+                if final { self.overlay?.showStatus(error.localizedDescription, duration: 4) }
             }
         }
     }
@@ -567,6 +621,8 @@ final class SubtitleOverlayView: UIView {
     private let status = PaddingLabel()
     private var compact = false
     private var statusWork: DispatchWorkItem?
+    private var statusYields = false
+    private var captionWork: DispatchWorkItem?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -625,7 +681,6 @@ final class SubtitleOverlayView: UIView {
     }
 
     func show(original: String, translated: String?, mode: SubtitleMode) {
-        alpha = 1
         switch mode {
         case .original:
             set(primary, original); set(secondary, nil)
@@ -634,42 +689,77 @@ final class SubtitleOverlayView: UIView {
         case .bilingual:
             set(primary, translated ?? original); set(secondary, translated == nil ? nil : original)
         }
-        relayout()
+        captionShown()
     }
 
     func updateOriginal(_ text: String) {
-        alpha = 1
         set(secondary, text)
         if primary.isHidden { set(primary, "…") }
-        relayout()
+        captionShown()
     }
 
-    func showStatus(_ text: String, duration: TimeInterval = 0) {
+    /// Status line. Without a duration it is a passing notice that also gives way to the next caption.
+    func showStatus(_ text: String, duration: TimeInterval? = nil) {
         alpha = 1
         set(status, text)
+        statusYields = duration == nil
         statusWork?.cancel()
-        if duration > 0 {
-            let w = DispatchWorkItem { [weak self] in self?.set(self?.status, nil); self?.relayout() }
-            statusWork = w
-            DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: w)
+        let w = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.statusWork = nil
+            self.set(self.status, nil)
+            self.relayout()
         }
+        statusWork = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + (duration ?? 4), execute: w)
         relayout()
     }
 
-    func fadeOut() {
-        guard alpha > 0, !primary.isHidden || !secondary.isHidden else { return }
-        UIView.animate(withDuration: 0.3) { self.alpha = 0 } completion: { _ in
-            self.set(self.primary, nil); self.set(self.secondary, nil); self.alpha = 1
+    /// Each caption stays up for as long as it takes to read, then clears unless a newer one replaced it.
+    private func captionShown() {
+        alpha = 1
+        primary.alpha = 1
+        secondary.alpha = 1
+        if statusYields, !status.isHidden { statusWork?.cancel(); statusWork = nil; set(status, nil) }
+        relayout()
+        captionWork?.cancel()
+        let text = [primary, secondary].filter { !$0.isHidden }.compactMap(\.text).max { $0.count < $1.count } ?? ""
+        let w = DispatchWorkItem { [weak self] in self?.hideCaption() }
+        captionWork = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.readingTime(text), execute: w)
+    }
+
+    static func readingTime(_ text: String) -> TimeInterval {
+        let dense = text.unicodeScalars.contains { (0x3040...0x9FFF).contains($0.value) || (0xAC00...0xD7AF).contains($0.value) }
+        // About 6 CJK or 16 Latin characters a second, plus a moment to notice the caption.
+        return min(8, max(2.5, 1.2 + Double(text.count) * (dense ? 0.17 : 0.06)))
+    }
+
+    private func hideCaption() {
+        captionWork = nil
+        UIView.animate(withDuration: 0.3) {
+            self.primary.alpha = 0
+            self.secondary.alpha = 0
+        } completion: { _ in
+            guard self.captionWork == nil else { return }
+            self.set(self.primary, nil)
+            self.set(self.secondary, nil)
+            self.primary.alpha = 1
+            self.secondary.alpha = 1
+            self.relayout()
         }
     }
 
     func clear() {
+        captionWork?.cancel()
+        captionWork = nil
+        statusWork?.cancel()
+        statusWork = nil
         [primary, secondary, status].forEach { set($0, nil) }
     }
 
     private func set(_ l: PaddingLabel?, _ text: String?) {
         guard let l else { return }
-        if l === status, text != nil { /* status yields to captions */ } else if l !== status, text != nil, !status.isHidden, statusWork == nil { status.isHidden = true }
         l.text = text
         l.isHidden = text?.isEmpty != false
     }

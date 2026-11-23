@@ -12,7 +12,9 @@ struct Pref<T> {
 
     var wrappedValue: T {
         get { UserDefaults.standard.object(forKey: key) as? T ?? defaultValue }
-        set {
+        // Observers read the pref back while the notification is delivered; a mutating setter would
+        // hold exclusive access to the static storage during that and trap.
+        nonmutating set {
             UserDefaults.standard.set(newValue, forKey: key)
             NotificationCenter.default.post(name: .prefsChanged, object: key)
         }
@@ -136,6 +138,7 @@ enum Prefs {
     @Pref("subtitleMode", 0) static var subtitleModeRaw: Int
     @Pref("subtitleEngine", "auto") static var subtitleEngine: String
     @Pref("senseVoiceOffered", false) static var senseVoiceOffered: Bool
+    @Pref("appAudioAllowed", false) static var appAudioAllowed: Bool
     @Pref("subtitleFontSize", 17.0) static var subtitleFontSize: Double
 
     // Onboarding

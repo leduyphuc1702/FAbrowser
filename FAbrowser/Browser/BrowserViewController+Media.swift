@@ -310,6 +310,9 @@ extension BrowserViewController {
 
     func showSubtitleOptions() {
         let sheet = UIAlertController(title: L("Live Subtitles"), message: nil, preferredStyle: .actionSheet)
+        if LiveSubtitles.shared.audioCaptureFailed {
+            sheet.addAction(UIAlertAction(title: L("Allow App Audio"), style: .default) { _ in LiveSubtitles.shared.retryAudioCapture() })
+        }
         sheet.addAction(UIAlertAction(title: L("Spoken Language") + ": " + SubtitleLanguages.name(Prefs.subtitleSource), style: .default) { [weak self] _ in
             guard let self else { return }
             let s = UIAlertController(title: L("Spoken Language"), message: nil, preferredStyle: .actionSheet)

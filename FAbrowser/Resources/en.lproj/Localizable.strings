@@ -31,6 +31,7 @@
 "All Pause" = "All Pause";
 "All Resume" = "All Resume";
 "Allow" = "Allow";
+"Allow App Audio" = "Allow App Audio";
 "Allow Auto Replace Playing" = "Allow Auto Replace Playing";
 "Always Translate" = "Always Translate";
 "App Icon" = "App Icon";
@@ -41,7 +42,6 @@
 "Are you sure to clear?" = "Are you sure to clear?";
 "Are you sure to delete?" = "Are you sure to delete?";
 "Audio capture is not available on this device." = "Audio capture is not available on this device.";
-"Audio capture was denied." = "Audio capture was denied.";
 "Authentication" = "Authentication";
 "Authentication required" = "Authentication required";
 "Author" = "Author";
@@ -121,6 +121,7 @@
 "Copy Link" = "Copy Link";
 "Copy Link Text" = "Copy Link Text";
 "Copy URL" = "Copy URL";
+"Couldn't capture the app's audio." = "Couldn't capture the app's audio.";
 "Couldn't download the speech model." = "Couldn't download the speech model.";
 "Couldn't load the speech model." = "Couldn't load the speech model.";
 "Create Backup" = "Create Backup";
@@ -268,6 +269,7 @@
 "Night" = "Night";
 "Night Mode" = "Night";
 "No Active Extension Hint" = "No active extension for this page. Add one in JavaScript Extensions and turn on \"Active Extension\".";
+"No Audio for Subtitles" = "No Audio for Subtitles";
 "No Image Found" = "No Image Found";
 "No hidden elements." = "No hidden elements.";
 "No local downloads." = "No local downloads.";
@@ -422,7 +424,9 @@
 "Stop Translating" = "Stop Translating";
 "Streaming Video" = "Streaming Video";
 "Stretch" = "Stretch";
+"Subtitles can't hear this video. Tap here to allow audio." = "Subtitles can't hear this video. Tap here to allow audio.";
 "Subtitles for any video, translated into your language." = "Subtitles for any video, translated into your language.";
+"Subtitles for this video listen to FAbrowser's own sound. iOS will next ask to record the screen: tap Allow. Only the app's audio is used, for subtitles, and nothing is recorded or saved." = "Subtitles for this video listen to FAbrowser's own sound. iOS will next ask to record the screen: tap Allow. Only the app's audio is used, for subtitles, and nothing is recorded or saved.";
 "Swap Home and Tabs buttons" = "Swap Home and Tabs buttons";
 "Swipe back from anywhere" = "Swipe back from anywhere";
 "System" = "System";
@@ -453,8 +457,10 @@
 "Translate whole pages on device. Nothing is sent to Google." = "Translate whole pages on device. Nothing is sent to Google.";
 "Translation Only" = "Translation Only";
 "Translation runs on device with Apple's offline translator (iOS 18+). No page content is sent to Google or any server." = "Translation runs on device with Apple's offline translator (iOS 18+). No page content is sent to Google or any server.";
+"Try Again" = "Try Again";
 "Try Switching to Desktop" = "Try Switching to Desktop";
 "Try again" = "Try again";
+"Turn Off" = "Turn Off";
 "Turn Off Live Subtitles" = "Turn Off Live Subtitles";
 "Turn On Video Compatibility Mode" = "Turn On Video Compatibility Mode";
 "Turns the speech in a playing video into subtitles and translates them into your language, on device. Start it from the Toolbox or the subtitles button of the floating player." = "Turns the speech in a playing video into subtitles and translates them into your language, on device. Start it from the Toolbox or the subtitles button of the floating player.";
@@ -495,6 +501,7 @@
 "Whitelist" = "Whitelist";
 "Wi-Fi Transfer" = "Wi-Fi Transfer";
 "Within 1 Hour" = "Within 1 Hour";
+"Without app audio, subtitles can't hear videos played inside web pages or as streams. Tap Try Again and choose Allow." = "Without app audio, subtitles can't hear videos played inside web pages or as streams. Tap Try Again and choose Allow.";
 "Yesterday" = "Yesterday";
 "You can change this later in Settings › Live Subtitles." = "You can change this later in Settings › Live Subtitles.";
 "Your Language" = "Your Language";
@@ -504,4 +511,5 @@
 "clear_all_tabs_hint" = "Close all tabs?";
 "iOS 18+" = "iOS 18+";
 "iOS asks for confirmation before downloading. Packs can be removed in the iOS Settings app." = "iOS asks for confirmation before downloading. Packs can be removed in the iOS Settings app.";
+"iOS isn't showing its permission prompt right now; it waits a few minutes after a refusal. Try again in a moment, or turn subtitles off and on later." = "iOS isn't showing its permission prompt right now; it waits a few minutes after a refusal. Try again in a moment, or turn subtitles off and on later.";
 "qrcode.nocode" = "No QR code found";
