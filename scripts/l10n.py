@@ -30,6 +30,7 @@ VI = {
     "Automatic": "Tự động",
     "Better Subtitles": "Phụ đề chính xác hơn",
     "Allow App Audio": "Cho phép âm thanh của app",
+    "Translation stopped. Please try again.": "Dịch bị dừng. Vui lòng thử lại.",
     "Subtitles for this video listen to FAbrowser's own sound. iOS will next ask to record the screen: tap Allow. Only the app's audio is used, for subtitles, and nothing is recorded or saved.": "Phụ đề cho video này cần nghe âm thanh do chính FAbrowser phát ra. Tiếp theo iOS sẽ hỏi quyền ghi màn hình: hãy chọn Cho phép. App chỉ dùng âm thanh của app để làm phụ đề, không ghi lại hay lưu gì cả.",
     "Subtitles can't hear this video. Tap here to allow audio.": "Phụ đề không nghe được video này. Chạm vào đây để cho phép âm thanh.",
     "Without app audio, subtitles can't hear videos played inside web pages or as streams. Tap Try Again and choose Allow.": "Không có âm thanh của app thì phụ đề không nghe được video phát trong trang web hoặc video dạng stream. Chạm Thử lại rồi chọn Cho phép.",

@@ -3,6 +3,7 @@ import Speech
 import ReplayKit
 import AVFoundation
 import MediaToolbox
+import NaturalLanguage
 
 enum SubtitleMode: Int, CaseIterable {
     case translation, bilingual, original
@@ -26,6 +27,21 @@ enum SubtitleLanguages {
         case "zh-CN": return "zh-Hans"
         case "zh-TW", "yue-CN": return "zh-Hant"
         default: return TranslateLanguages.normalize(locale)
+        }
+    }
+
+    /// Translation source for one caption. Chinese captions are checked for their script: the
+    /// recognizer may call Mandarin Cantonese for a moment, and the packs differ per script.
+    static func translationSource(_ locale: String, text: String) -> String {
+        let code = translationCode(locale)
+        guard code.hasPrefix("zh") else { return code }
+        let r = NLLanguageRecognizer()
+        r.languageConstraints = [.simplifiedChinese, .traditionalChinese]
+        r.processString(text)
+        switch r.dominantLanguage {
+        case .some(.traditionalChinese): return "zh-Hant"
+        case .some(.simplifiedChinese): return "zh-Hans"
+        default: return code
         }
     }
 
@@ -67,6 +83,9 @@ final class LiveSubtitles: NSObject {
     private var displayedGeneration = 0
     private var upgrading: String?
     private var senseVoiceFailed = false
+    private var offeredPack = false
+    private var packStatus: [String: TranslationService.PackStatus] = [:]
+    private var waitingSince: Date?
     private weak var presenter: UIViewController?
     private var tap: PlayerAudioTap?
     private weak var playerItem: AVPlayerItem?
@@ -97,6 +116,8 @@ final class LiveSubtitles: NSObject {
         self.hint = hint
         self.presenter = presenter
         senseVoiceFailed = false
+        offeredPack = false
+        packStatus = [:]
         requestPermission(presenter: presenter) { [weak self] ok in
             guard let self, ok else { return }
             self.isOn = true
@@ -416,7 +437,8 @@ final class LiveSubtitles: NSObject {
         overlay?.showStatus(SubtitleLanguages.name(ch.locale), duration: provisional ? 2 : 1.5)
         if needsTranslation(ch.locale) {
             // Load the translation model while the first sentence is still being spoken.
-            let from = SubtitleLanguages.translationCode(ch.locale), sample = ch.finalTranscript.isEmpty ? "OK" : ch.finalTranscript
+            let sample = ch.finalTranscript.isEmpty ? "OK" : ch.finalTranscript
+            let from = SubtitleLanguages.translationSource(ch.locale, text: sample)
             Task { @MainActor in TranslationService.shared.warmUp(from: from, to: Prefs.translateTarget, sample: sample) }
         }
         guard !provisional else { return }
@@ -467,6 +489,11 @@ final class LiveSubtitles: NSObject {
         channels.forEach { $0.tick() }
         if channels.count > 1 { evaluateDetection() }
         if Date().timeIntervalSince(lastTextChange) > 1.4 { refreshDisplay() }
+        // Translations keep not coming back: show what was said rather than a blank caption.
+        if let since = waitingSince, Date().timeIntervalSince(since) > 4, !shownUnit.isEmpty {
+            waitingSince = nil
+            overlay?.show(original: shownUnit, translated: nil, mode: .original)
+        }
     }
 
     private func log(_ s: String) {
@@ -486,6 +513,7 @@ final class LiveSubtitles: NSObject {
         partialText = ""
         shownUnit = ""
         recentStable = []
+        waitingSince = nil
     }
 
     private func textChanged() {
@@ -528,19 +556,54 @@ final class LiveSubtitles: NSObject {
         translateGeneration += 1
         let gen = translateGeneration
         let mode = self.mode
+        let source = SubtitleLanguages.translationSource(locale, text: text)
+        let target = Prefs.translateTarget
+        if waitingSince == nil { waitingSince = Date() }
         Task { @MainActor in
+            // Without the pack the session waits on a download sheet that never shows: check first.
+            let pair = source + ">" + target
+            if self.packStatus[pair] == nil { self.packStatus[pair] = await TranslationService.shared.status(from: source, to: target) }
+            let status = self.packStatus[pair] ?? .installed
+            guard status == .installed else {
+                guard self.isOn, gen > self.displayedGeneration else { return }
+                self.displayedGeneration = gen
+                self.waitingSince = nil
+                self.overlay?.show(original: text, translated: nil, mode: .original)
+                if status == .downloadable { self.offerLanguagePack(source) }
+                else if final { self.overlay?.showStatus((status == .unavailableOS ? TranslationError.unavailableOS : TranslationError.unsupportedPair).localizedDescription, duration: 4) }
+                return
+            }
             do {
-                let out = try await TranslationService.shared.translate([text], from: SubtitleLanguages.translationCode(locale), to: Prefs.translateTarget, cache: final, slot: final ? 0 : 1)
+                let out = try await TranslationService.shared.translate([text], from: source, to: target, cache: final, slot: final ? 0 : 1)
                 // Results can arrive out of order; never replace a newer caption with an older one.
                 guard self.isOn, gen > self.displayedGeneration else { return }
                 self.displayedGeneration = gen
+                self.waitingSince = nil
                 self.overlay?.show(original: text, translated: out.first, mode: mode)
             } catch {
                 guard self.isOn, gen > self.displayedGeneration else { return }
                 self.displayedGeneration = gen
+                self.waitingSince = nil
                 self.overlay?.show(original: text, translated: nil, mode: .original)
-                if final { self.overlay?.showStatus(error.localizedDescription, duration: 4) }
+                self.log("translate \(source) failed: \(error)")
+                if case TranslationError.notInstalled = error {
+                    self.packStatus[pair] = .downloadable
+                    self.offerLanguagePack(source)
+                } else if final {
+                    self.overlay?.showStatus(error.localizedDescription, duration: 4)
+                }
             }
+        }
+    }
+
+    /// The pack for the spoken language is missing: show the system download sheet once.
+    private func offerLanguagePack(_ source: String) {
+        overlay?.showStatus(TranslationError.notInstalled.localizedDescription, duration: 4)
+        guard !offeredPack, let top = topPresenter else { return }
+        offeredPack = true
+        Task { @MainActor in
+            try? await TranslationService.shared.prepare(from: source, to: Prefs.translateTarget, presenter: top)
+            self.packStatus = [:]
         }
     }
 }

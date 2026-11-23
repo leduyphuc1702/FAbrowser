@@ -457,6 +457,7 @@
 "Translate whole pages on device. Nothing is sent to Google." = "Translate whole pages on device. Nothing is sent to Google.";
 "Translation Only" = "Translation Only";
 "Translation runs on device with Apple's offline translator (iOS 18+). No page content is sent to Google or any server." = "Translation runs on device with Apple's offline translator (iOS 18+). No page content is sent to Google or any server.";
+"Translation stopped. Please try again." = "Translation stopped. Please try again.";
 "Try Again" = "Try Again";
 "Try Switching to Desktop" = "Try Switching to Desktop";
 "Try again" = "Try again";

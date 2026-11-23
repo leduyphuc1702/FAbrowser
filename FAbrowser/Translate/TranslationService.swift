@@ -249,7 +249,9 @@ final class TranslationHostPool {
         let key = source + ">" + target + "#\(slot)"
         if let h = hosts[key], h.isAlive { return h }
         let h = TranslationHost(source: source, target: target)
-        if let root = UIApplication.shared.keyWindowCompat?.rootViewController { h.attach(to: root) }
+        // In the window itself, not the browser's view: a fullscreen presentation takes that view out
+        // of the window, which would end the session mid-job.
+        if let window = UIApplication.shared.keyWindowCompat { h.attach(to: window) }
         hosts[key] = h
         return h
     }
@@ -260,9 +262,13 @@ final class TranslationHostPool {
 @available(iOS 18.0, *)
 @MainActor
 final class TranslationHost {
-    enum Job {
-        case translate([String], CheckedContinuation<[String], Error>)
-        case prepare(CheckedContinuation<Void, Error>)
+    /// One request; finished exactly once, by the session or by the host ending.
+    final class Job {
+        enum Kind { case translate([String]), prepare }
+        let kind: Kind
+        private var done: ((Result<[String], Error>) -> Void)?
+        init(_ kind: Kind, done: @escaping (Result<[String], Error>) -> Void) { self.kind = kind; self.done = done }
+        func finish(_ r: Result<[String], Error>) { done?(r); done = nil }
     }
 
     let source: String
@@ -270,6 +276,7 @@ final class TranslationHost {
     private let stream: AsyncStream<Job>
     private let continuation: AsyncStream<Job>.Continuation
     private var hosting: UIHostingController<TranslationHostView>?
+    private var pending: [ObjectIdentifier: Job] = [:]
     private(set) var isAlive = true
 
     init(source: String, target: String) {
@@ -280,17 +287,29 @@ final class TranslationHost {
         continuation = c
     }
 
-    func attach(to vc: UIViewController) {
+    private func makeView() -> UIHostingController<TranslationHostView> {
         let config = TranslationSession.Configuration(source: Locale.Language(identifier: source), target: Locale.Language(identifier: target))
-        let view = TranslationHostView(config: config, stream: stream) { [weak self] in self?.isAlive = false }
+        let view = TranslationHostView(config: config, stream: stream) { [weak self] in self?.ended() }
         let h = UIHostingController(rootView: view)
         h.view.backgroundColor = .clear
         h.view.isUserInteractionEnabled = false
         h.view.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
         h.view.alpha = 0.02
+        return h
+    }
+
+    /// Hosted by a view controller, so the system download sheet can be presented from it.
+    func attach(to vc: UIViewController) {
+        let h = makeView()
         vc.addChild(h)
         vc.view.addSubview(h.view)
         h.didMove(toParent: vc)
+        hosting = h
+    }
+
+    func attach(to window: UIWindow) {
+        let h = makeView()
+        window.insertSubview(h.view, at: 0)
         hosting = h
     }
 
@@ -300,16 +319,37 @@ final class TranslationHost {
         hosting?.view.removeFromSuperview()
         hosting?.removeFromParent()
         hosting = nil
+        ended()
+    }
+
+    /// The session is gone: fail whatever it never answered instead of leaving callers waiting.
+    private func ended() {
         isAlive = false
+        let left = pending.values
+        pending.removeAll()
+        left.forEach { $0.finish(.failure(TranslationError.failed(L("Translation stopped. Please try again.")))) }
+    }
+
+    private func run(_ kind: Job.Kind) async throws -> [String] {
+        guard isAlive else { throw TranslationError.failed(L("Translation stopped. Please try again.")) }
+        return try await withCheckedThrowingContinuation { c in
+            var job: Job!
+            job = Job(kind) { [weak self] r in
+                if let self, let job { self.pending[ObjectIdentifier(job)] = nil }
+                c.resume(with: r)
+            }
+            pending[ObjectIdentifier(job)] = job
+            continuation.yield(job)
+        }
     }
 
     func translate(_ texts: [String]) async throws -> [String] {
         guard !texts.isEmpty else { return [] }
-        return try await withCheckedThrowingContinuation { c in continuation.yield(.translate(texts, c)) }
+        return try await run(.translate(texts))
     }
 
     func prepare() async throws {
-        try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in continuation.yield(.prepare(c)) }
+        _ = try await run(.prepare)
     }
 }
 
@@ -317,15 +357,15 @@ final class TranslationHost {
 struct TranslationHostView: View {
     let config: TranslationSession.Configuration
     let stream: AsyncStream<TranslationHost.Job>
-    let onEnd: () -> Void
+    let onEnd: @MainActor () -> Void
 
     var body: some View {
         Color.clear
             .frame(width: 1, height: 1)
             .translationTask(config) { session in
                 for await job in stream {
-                    switch job {
-                    case .translate(let texts, let cont):
+                    switch job.kind {
+                    case .translate(let texts):
                         do {
                             let requests = texts.enumerated().map { TranslationSession.Request(sourceText: $0.element, clientIdentifier: String($0.offset)) }
                             let responses = try await session.translations(from: requests)
@@ -333,20 +373,20 @@ struct TranslationHostView: View {
                             for r in responses {
                                 if let id = r.clientIdentifier, let i = Int(id), i < out.count { out[i] = r.targetText }
                             }
-                            cont.resume(returning: out)
+                            job.finish(.success(out))
                         } catch {
-                            cont.resume(throwing: TranslationHostView.map(error))
+                            job.finish(.failure(TranslationHostView.map(error)))
                         }
-                    case .prepare(let cont):
+                    case .prepare:
                         do {
                             try await session.prepareTranslation()
-                            cont.resume()
+                            job.finish(.success([]))
                         } catch {
-                            cont.resume(throwing: TranslationHostView.map(error))
+                            job.finish(.failure(TranslationHostView.map(error)))
                         }
                     }
                 }
-                onEnd()
+                await onEnd()
             }
     }
 

@@ -457,6 +457,7 @@
 "Translate whole pages on device. Nothing is sent to Google." = "Dịch cả trang ngay trên máy. Không gửi gì cho Google.";
 "Translation Only" = "Chỉ bản dịch";
 "Translation runs on device with Apple's offline translator (iOS 18+). No page content is sent to Google or any server." = "Dịch chạy trên máy bằng bộ dịch ngoại tuyến của Apple (iOS 18+). Nội dung trang không gửi cho Google hay máy chủ nào.";
+"Translation stopped. Please try again." = "Dịch bị dừng. Vui lòng thử lại.";
 "Try Again" = "Thử lại";
 "Try Switching to Desktop" = "Thử chuyển sang bản máy tính";
 "Try again" = "Thử lại";
