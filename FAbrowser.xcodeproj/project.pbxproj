@@ -13,10 +13,13 @@
 		0F16A990B14665D9BA57835B /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFEBCC1401081F06D02CD4D8 /* SettingsViewController.swift */; };
 		12F01482BFDF5C8F1E66F7F0 /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AEAF727C3D3C19621AAA328 /* Extensions.swift */; };
 		161DE27903460E3AC879C623 /* UserAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6302150E952555781FC80F95 /* UserAgent.swift */; };
+		1D1092D3D704612F650508F2 /* SenseVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3A7A53E0F3B77D9D09F5241 /* SenseVoice.swift */; };
+		220CD0944FEC1B81D7DD056B /* SherpaOnnxC.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4511D0D24A9AA986AF37C94B /* SherpaOnnxC.xcframework */; };
 		26E81D4E11B39DFBC79F9474 /* BrowserViewController+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7CEE6A746AD9809224F58CF /* BrowserViewController+Actions.swift */; };
 		2879C722D30EF772050427C2 /* BrowserViewController+Web.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D0002295D2019FCAD1DA275 /* BrowserViewController+Web.swift */; };
 		2CDCDE8F2A341768E9D59E3F /* FloatingPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00886C4BC5A7539276E75034 /* FloatingPlayer.swift */; };
 		304CD4ABC86D77DCFB114BF9 /* HistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A8CCAF7D8DD9EF394C08B17 /* HistoryStore.swift */; };
+		323A2DD5603390E4D81218A1 /* silero_vad.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 5F303ACF1BFF5E94F0D4593D /* silero_vad.onnx */; };
 		4A3BB3EDC89CC214774F9171 /* SearchEngines.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4013FE9284B462E5B6B69414 /* SearchEngines.swift */; };
 		4DE890EAF0355D0202596EFB /* ScriptManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F7926DAAE6013D6EF8F07C /* ScriptManager.swift */; };
 		51B23B9338742D055CA21DDD /* TabTrayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 553F99CBB72D2EAFB9050E6A /* TabTrayController.swift */; };
@@ -35,6 +38,7 @@
 		9AA7B99345CDDCED8C63FE62 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F05F139A5E596CB3600E80 /* Theme.swift */; };
 		9EA5BDE194897B3E63BD06A3 /* BrowserViewController+Media.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB6DFA71C2B49D74A5806C54 /* BrowserViewController+Media.swift */; };
 		A1A4535193F28790E35AD666 /* TabToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE689106E8B08ED7007454C /* TabToolbar.swift */; };
+		A2C963C809ABF49B6EA7FE81 /* SpeechChannels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54AE4723EE52C32652268BA9 /* SpeechChannels.swift */; };
 		A6E5C283486F31A52DB03E55 /* SearchViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B2AA6034928C95F9D53D807 /* SearchViewController.swift */; };
 		AC03E5034C6F047088E6B580 /* FaviconManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9AF226D4B220929575D0DD2 /* FaviconManager.swift */; };
 		B0C33D61E8AA333CE9C0CE79 /* ReaderViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6972558A21299C7B2F1F2DD9 /* ReaderViewController.swift */; };
@@ -47,6 +51,7 @@
 		D687540063529764A1D668BA /* Prefs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63714AA79F821851AA21B14C /* Prefs.swift */; };
 		DAF96224679EFD0ED2AAE0D4 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C94D1E28089B7705AEC2E3DC /* AppDelegate.swift */; };
 		E1780775E81F340D1A979482 /* Viewers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C42B96CF9ABF00C193B2FD2 /* Viewers.swift */; };
+		E4692FBB2D350CD286C1A9BB /* SherpaOnnxC.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 4511D0D24A9AA986AF37C94B /* SherpaOnnxC.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		E7135A95185BED6F2C81EA46 /* TopTabsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6EE55893B39B72465305123 /* TopTabsView.swift */; };
 		EBF64E982A45F999FDBAF612 /* FilesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCD05806EA16C08FD65A9363 /* FilesViewController.swift */; };
 		ED5A28AED3FA1144B5190696 /* WiFiTransferViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DBF3D4D35DB999FDD09D745 /* WiFiTransferViewController.swift */; };
@@ -55,6 +60,20 @@
 		F66750D7251844B6F05205EE /* PlayerControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A015644F6B7326C9ADBCB73F /* PlayerControlsView.swift */; };
 		F9266B4A75429689885BC3E7 /* VideoSniffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06BEA44D29A8F6077C8EEEED /* VideoSniffer.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		217C9E62BF193BFB4A1DB218 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				E4692FBB2D350CD286C1A9BB /* SherpaOnnxC.xcframework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		00886C4BC5A7539276E75034 /* FloatingPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingPlayer.swift; sourceTree = "<group>"; };
@@ -69,10 +88,13 @@
 		3B299A0BD735D522E862D399 /* GridSheetViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridSheetViewController.swift; sourceTree = "<group>"; };
 		3EE689106E8B08ED7007454C /* TabToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabToolbar.swift; sourceTree = "<group>"; };
 		4013FE9284B462E5B6B69414 /* SearchEngines.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchEngines.swift; sourceTree = "<group>"; };
+		4511D0D24A9AA986AF37C94B /* SherpaOnnxC.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = SherpaOnnxC.xcframework; path = Vendor/SherpaOnnxC.xcframework; sourceTree = "<group>"; };
 		4CABEC703E73F1CE9A736788 /* DebugLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLaunch.swift; sourceTree = "<group>"; };
 		4DBF3D4D35DB999FDD09D745 /* WiFiTransferViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WiFiTransferViewController.swift; sourceTree = "<group>"; };
 		5078CF70007B482431F1741F /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		54AE4723EE52C32652268BA9 /* SpeechChannels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechChannels.swift; sourceTree = "<group>"; };
 		553F99CBB72D2EAFB9050E6A /* TabTrayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabTrayController.swift; sourceTree = "<group>"; };
+		5F303ACF1BFF5E94F0D4593D /* silero_vad.onnx */ = {isa = PBXFileReference; path = silero_vad.onnx; sourceTree = "<group>"; };
 		629D1D449C4B71E2C7CA7262 /* BrowserViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserViewController.swift; sourceTree = "<group>"; };
 		6302150E952555781FC80F95 /* UserAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserAgent.swift; sourceTree = "<group>"; };
 		63714AA79F821851AA21B14C /* Prefs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prefs.swift; sourceTree = "<group>"; };
@@ -94,6 +116,7 @@
 		B8F7926DAAE6013D6EF8F07C /* ScriptManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptManager.swift; sourceTree = "<group>"; };
 		BFEBCC1401081F06D02CD4D8 /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewController.swift; sourceTree = "<group>"; };
 		C016792EC10484F877DF3E35 /* AccessoryBars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessoryBars.swift; sourceTree = "<group>"; };
+		C3A7A53E0F3B77D9D09F5241 /* SenseVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SenseVoice.swift; sourceTree = "<group>"; };
 		C45FEFD4C27708E44F5C8D34 /* easylist.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = easylist.txt; sourceTree = "<group>"; };
 		C94D1E28089B7705AEC2E3DC /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		C99EED0E108038B6953CECA8 /* TranslationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationService.swift; sourceTree = "<group>"; };
@@ -108,6 +131,17 @@
 		FB6DFA71C2B49D74A5806C54 /* BrowserViewController+Media.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserViewController+Media.swift"; sourceTree = "<group>"; };
 		FD1AB2C867369B4567B23D0F /* PageTranslator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageTranslator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B4C80777206957041A9B8C0D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				220CD0944FEC1B81D7DD056B /* SherpaOnnxC.xcframework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		13BD126FFE291A9AF9023F55 /* Settings */ = {
@@ -133,6 +167,7 @@
 			isa = PBXGroup;
 			children = (
 				4873E20AF9BF546EA9CDCD20 /* FAbrowser */,
+				4B12FB79C83D4775C7DFD5F6 /* Frameworks */,
 				6BCAC49E9C5909ED194D69EC /* Products */,
 			);
 			sourceTree = "<group>";
@@ -194,6 +229,14 @@
 				CB1680DCCAFC6E229E252486 /* Video */,
 			);
 			path = FAbrowser;
+			sourceTree = "<group>";
+		};
+		4B12FB79C83D4775C7DFD5F6 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4511D0D24A9AA986AF37C94B /* SherpaOnnxC.xcframework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		54F3B32F8D0429A44816E024 /* Library */ = {
@@ -291,6 +334,8 @@
 			isa = PBXGroup;
 			children = (
 				B001B6F0B75830AB7CC840F4 /* LiveSubtitles.swift */,
+				C3A7A53E0F3B77D9D09F5241 /* SenseVoice.swift */,
+				54AE4723EE52C32652268BA9 /* SpeechChannels.swift */,
 			);
 			path = Subtitles;
 			sourceTree = "<group>";
@@ -309,6 +354,7 @@
 		DD00271745749514D07D47CB /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				5F303ACF1BFF5E94F0D4593D /* silero_vad.onnx */,
 				192622E30A898E3EBA064DFB /* Filters */,
 				82BA004C2E7C3BB837B29BF9 /* Localizable.strings */,
 			);
@@ -334,6 +380,8 @@
 			buildPhases = (
 				05666EB9E0169FBE9C3509D8 /* Sources */,
 				54D3E4FBDAF3548D8A945E23 /* Resources */,
+				B4C80777206957041A9B8C0D /* Frameworks */,
+				217C9E62BF193BFB4A1DB218 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -390,6 +438,7 @@
 				5DA71F02AFD5A8A3CC3FAA2D /* Localizable.strings in Resources */,
 				0B75223609DC4E7DF6CA682B /* abpvn.txt in Resources */,
 				F6280E3909FE012F52DFA3E9 /* easylist.txt in Resources */,
+				323A2DD5603390E4D81218A1 /* silero_vad.onnx in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -430,7 +479,9 @@
 				4DE890EAF0355D0202596EFB /* ScriptManager.swift in Sources */,
 				4A3BB3EDC89CC214774F9171 /* SearchEngines.swift in Sources */,
 				A6E5C283486F31A52DB03E55 /* SearchViewController.swift in Sources */,
+				1D1092D3D704612F650508F2 /* SenseVoice.swift in Sources */,
 				0F16A990B14665D9BA57835B /* SettingsViewController.swift in Sources */,
+				A2C963C809ABF49B6EA7FE81 /* SpeechChannels.swift in Sources */,
 				BD2B6B52EBB8F4359765C2D0 /* TabManager.swift in Sources */,
 				A1A4535193F28790E35AD666 /* TabToolbar.swift in Sources */,
 				51B23B9338742D055CA21DDD /* TabTrayController.swift in Sources */,
@@ -536,6 +587,10 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_PREVIEWS = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"Vendor\"",
+				);
 				INFOPLIST_FILE = FAbrowser/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -616,6 +671,10 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_PREVIEWS = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"Vendor\"",
+				);
 				INFOPLIST_FILE = FAbrowser/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -134,6 +134,8 @@ enum Prefs {
     // Live subtitles
     @Pref("subtitleSource", "auto") static var subtitleSource: String
     @Pref("subtitleMode", 0) static var subtitleModeRaw: Int
+    @Pref("subtitleEngine", "auto") static var subtitleEngine: String
+    @Pref("senseVoiceOffered", false) static var senseVoiceOffered: Bool
     @Pref("subtitleFontSize", 17.0) static var subtitleFontSize: Double
 
     // Onboarding

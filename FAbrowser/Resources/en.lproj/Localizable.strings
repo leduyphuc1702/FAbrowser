@@ -45,15 +45,18 @@
 "Authentication" = "Authentication";
 "Authentication required" = "Authentication required";
 "Author" = "Author";
-"Auto Detect (EN/JA/ZH)" = "Auto Detect (EN/JA/ZH)";
+"Auto Detect" = "Auto Detect";
 "Auto Picture in Picture" = "Auto Picture in Picture";
 "Auto Refresh" = "Auto Refresh";
 "Auto Update Filters" = "Auto Update Filters";
+"Automatic" = "Automatic";
 "Back" = "Back";
 "Background Play" = "Background Play";
 "Background Tab" = "Background Tab";
 "Backup & Restore" = "Backup & Restore";
 "Backup contains settings, bookmarks, navigation sites, search engines and extensions." = "Backup contains settings, bookmarks, navigation sites, search engines and extensions.";
+"Basic Speech Model" = "Basic Speech Model";
+"Better Subtitles" = "Better Subtitles";
 "Bilingual" = "Bilingual";
 "Black" = "Black";
 "Blank" = "Blank";
@@ -75,6 +78,7 @@
 "Can't detect page language" = "Can't detect page language";
 "Can't open %@" = "Can't open %@";
 "Cancel" = "Cancel";
+"Cancel Download" = "Cancel Download";
 "Capture..." = "Capture...";
 "Centered Search Box" = "Centered Search Box";
 "Change file extension may also change the file type" = "Change file extension may also change the file type";
@@ -117,6 +121,8 @@
 "Copy Link" = "Copy Link";
 "Copy Link Text" = "Copy Link Text";
 "Copy URL" = "Copy URL";
+"Couldn't download the speech model." = "Couldn't download the speech model.";
+"Couldn't load the speech model." = "Couldn't load the speech model.";
 "Create Backup" = "Create Backup";
 "Create Error" = "Create Error";
 "Create Folder" = "Create Folder";
@@ -144,10 +150,14 @@
 "Download" = "Download";
 "Download Failed" = "Download Failed";
 "Download File" = "Download File";
+"Download the SenseVoice speech model (%d MB, free, works offline)? It recognizes Chinese, English, Japanese, Korean and Cantonese far more accurately and detects the spoken language in about a second." = "Download the SenseVoice speech model (%d MB, free, works offline)? It recognizes Chinese, English, Japanese, Korean and Cantonese far more accurately and detects the spoken language in about a second.";
 "Download the languages you watch and read most. Translation then works without internet." = "Download the languages you watch and read most. Translation then works without internet.";
 "Download the packs you need once; translation then works offline. Packs are managed by iOS in Settings › Apps › Translate." = "Download the packs you need once; translation then works offline. Packs are managed by iOS in Settings › Apps › Translate.";
 "Downloaded" = "Downloaded";
+"Downloaded · %d MB" = "Downloaded · %d MB";
 "Downloading" = "Downloading";
+"Downloading speech model… %d%%" = "Downloading speech model… %d%%";
+"Downloading… %d%%" = "Downloading… %d%%";
 "Downloads videos over several connections at once and fetches upcoming HLS segments ahead of time, so videos start sooner and seeking is smoother on the same connection. Turn off if a site's video won't play." = "Downloads videos over several connections at once and fetches upcoming HLS segments ahead of time, so videos start sooner and seeking is smoother on the same connection. Turn off if a site's video won't play.";
 "Duplicate" = "Duplicate";
 "EasyList and ABPVN are built in and work offline. Enabled lists are refreshed every 4 days." = "EasyList and ABPVN are built in and work offline. Enabled lists are refreshed every 4 days.";
@@ -253,6 +263,7 @@
 "New Extension" = "New Extension";
 "New Folder" = "New Folder";
 "New Private Tab" = "New Private Tab";
+"New Speech Model" = "New Speech Model";
 "New Tab" = "New Tab";
 "Night" = "Night";
 "Night Mode" = "Night";
@@ -265,6 +276,8 @@
 "No video found. Start playing the video in the page first." = "No video found. Start playing the video in the page first.";
 "None" = "None";
 "Normal" = "Normal";
+"Not Downloaded" = "Not Downloaded";
+"Not Now" = "Not Now";
 "Not Set" = "Not Set";
 "Not Supported" = "Not Supported";
 "OK" = "OK";
@@ -376,6 +389,8 @@
 "Security" = "Security";
 "Select All" = "Select All";
 "Select Folder" = "Select Folder";
+"SenseVoice Model" = "SenseVoice Model";
+"SenseVoice is a free model that runs on the device. It is far more accurate for Chinese, English, Japanese, Korean and Cantonese, adds punctuation and detects which of them is spoken in about a second. Other languages use Apple's recognizer (its newest on-device model on iOS 26)." = "SenseVoice is a free model that runs on the device. It is far more accurate for Chinese, English, Japanese, Korean and Cantonese, adds punctuation and detects which of them is spoken in about a second. Other languages use Apple's recognizer (its newest on-device model on iOS 26).";
 "Sent" = "Sent";
 "Separate multiple rules with @@. Use * as wildcard, or /regex/." = "Separate multiple rules with @@. Use * as wildcard, or /regex/.";
 "Sepia" = "Sepia";
@@ -396,6 +411,7 @@
 "Skip Video Ads" = "Skip Video Ads";
 "Snapshot" = "Snapshot";
 "Sort" = "Sort";
+"Speech Recognition" = "Speech Recognition";
 "Speech in videos (English, Japanese, Chinese…) becomes subtitles in your language. How should they look?" = "Speech in videos (English, Japanese, Chinese…) becomes subtitles in your language. How should they look?";
 "Speech recognition is not available for this language." = "Speech recognition is not available for this language.";
 "Spoken Language" = "Spoken Language";
@@ -456,6 +472,7 @@
 "User Agent" = "User Agent";
 "User Hide Ad" = "User Hide Ad";
 "Username" = "Username";
+"Using the new speech model" = "Using the new speech model";
 "Version" = "Version";
 "Very Beginning" = "Very Beginning";
 "Video" = "Video";

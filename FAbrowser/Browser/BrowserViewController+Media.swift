@@ -286,13 +286,18 @@ extension BrowserViewController {
         let ls = LiveSubtitles.shared
         if ls.isOn { ls.stop(); return }
         let host = topMost
+        let tab = currentTab
+        let player = forPlayer && floatingPlayer.isActive ? floatingPlayer.source : nil
+        let hint = SubtitleHint(host: (player?.pageURL ?? tab?.url)?.host,
+                                title: player?.title ?? tab?.title,
+                                pageLanguage: tab?.translatedFrom ?? tab?.translateSuggested)
         if forPlayer, floatingPlayer.isActive {
             floatingPlayer.setSubtitlesShown(true)
-            ls.start(target: .player, overlay: floatingPlayer.subtitleView, item: floatingPlayer.player.currentItem, presenter: host)
+            ls.start(target: .player, overlay: floatingPlayer.subtitleView, item: floatingPlayer.player.currentItem, presenter: host, hint: hint)
         } else {
             pageSubtitles.isHidden = false
             view.setNeedsLayout()
-            ls.start(target: .page, overlay: pageSubtitles, item: nil, presenter: host)
+            ls.start(target: .page, overlay: pageSubtitles, item: nil, presenter: host, hint: hint)
         }
     }
 

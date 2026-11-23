@@ -85,7 +85,7 @@ final class TranslationService {
     /// Cached strings are answered immediately; the rest is de-duplicated and, for larger
     /// batches, split across two translation sessions that run in parallel.
     @MainActor
-    func translate(_ texts: [String], from source: String, to target: String) async throws -> [String] {
+    func translate(_ texts: [String], from source: String, to target: String, cache store: Bool = true) async throws -> [String] {
         let s = TranslateLanguages.normalize(source), t = TranslateLanguages.normalize(target)
         if s == t { return texts }
         let cache = TranslationCache.shared
@@ -101,7 +101,7 @@ final class TranslationService {
         var map: [String: String] = [:]
         for (k, x) in missing.enumerated() where k < translated.count {
             map[x] = translated[k]
-            cache.set(translated[k], for: x, pair: pair)
+            if store { cache.set(translated[k], for: x, pair: pair) }
         }
         for (i, x) in texts.enumerated() { if let m = map[x] { out[i] = m } }
         return out

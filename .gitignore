@@ -8,3 +8,4 @@ xcuserdata/
 *.p12
 *.mobileprovision
 *.zsigncert
+Vendor/

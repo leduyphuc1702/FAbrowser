@@ -45,15 +45,18 @@
 "Authentication" = "Xác thực";
 "Authentication required" = "Yêu cầu xác thực";
 "Author" = "Tác giả";
-"Auto Detect (EN/JA/ZH)" = "Tự nhận diện (Anh/Nhật/Trung)";
+"Auto Detect" = "Tự nhận diện";
 "Auto Picture in Picture" = "Tự động hình trong hình";
 "Auto Refresh" = "Tự động làm mới";
 "Auto Update Filters" = "Tự cập nhật bộ lọc";
+"Automatic" = "Tự động";
 "Back" = "Quay lại";
 "Background Play" = "Phát trong nền";
 "Background Tab" = "Tab nền";
 "Backup & Restore" = "Sao lưu & khôi phục";
 "Backup contains settings, bookmarks, navigation sites, search engines and extensions." = "Bản sao lưu gồm cài đặt, dấu trang, trang điều hướng, công cụ tìm kiếm và tiện ích.";
+"Basic Speech Model" = "Mô hình giọng nói cơ bản";
+"Better Subtitles" = "Phụ đề chính xác hơn";
 "Bilingual" = "Song ngữ";
 "Black" = "Đen";
 "Blank" = "Trang trắng";
@@ -75,6 +78,7 @@
 "Can't detect page language" = "Không nhận diện được ngôn ngữ trang";
 "Can't open %@" = "Không thể mở %@";
 "Cancel" = "Huỷ";
+"Cancel Download" = "Huỷ tải về";
 "Capture..." = "Đang chụp...";
 "Centered Search Box" = "Ô tìm kiếm ở giữa";
 "Change file extension may also change the file type" = "Đổi phần mở rộng có thể làm thay đổi loại tệp";
@@ -117,6 +121,8 @@
 "Copy Link" = "Sao chép liên kết";
 "Copy Link Text" = "Sao chép văn bản liên kết";
 "Copy URL" = "Sao chép URL";
+"Couldn't download the speech model." = "Không tải được mô hình giọng nói.";
+"Couldn't load the speech model." = "Không tải được mô hình giọng nói.";
 "Create Backup" = "Tạo bản sao lưu";
 "Create Error" = "Lỗi tạo";
 "Create Folder" = "Tạo thư mục";
@@ -144,10 +150,14 @@
 "Download" = "Tải về";
 "Download Failed" = "Tải xuống thất bại";
 "Download File" = "Tải tệp xuống";
+"Download the SenseVoice speech model (%d MB, free, works offline)? It recognizes Chinese, English, Japanese, Korean and Cantonese far more accurately and detects the spoken language in about a second." = "Tải mô hình giọng nói SenseVoice (%d MB, miễn phí, chạy offline)? Mô hình nhận dạng tiếng Trung, Anh, Nhật, Hàn và Quảng Đông chính xác hơn nhiều và nhận biết ngôn ngữ đang nói chỉ trong khoảng một giây.";
 "Download the languages you watch and read most. Translation then works without internet." = "Tải các ngôn ngữ bạn hay xem và đọc. Sau đó dịch hoạt động không cần mạng.";
 "Download the packs you need once; translation then works offline. Packs are managed by iOS in Settings › Apps › Translate." = "Tải gói ngôn ngữ một lần, sau đó dịch ngoại tuyến. Gói do iOS quản lý trong Cài đặt › Ứng dụng › Dịch thuật.";
 "Downloaded" = "Đã tải xuống";
+"Downloaded · %d MB" = "Đã tải · %d MB";
 "Downloading" = "Đang tải xuống";
+"Downloading speech model… %d%%" = "Đang tải mô hình giọng nói… %d%%";
+"Downloading… %d%%" = "Đang tải… %d%%";
 "Downloads videos over several connections at once and fetches upcoming HLS segments ahead of time, so videos start sooner and seeking is smoother on the same connection. Turn off if a site's video won't play." = "Tải video qua nhiều kết nối cùng lúc và tải trước các đoạn HLS sắp phát, nên video mở nhanh hơn và tua mượt hơn trên cùng đường truyền. Tắt nếu video của trang nào đó không phát được.";
 "Duplicate" = "Nhân bản";
 "EasyList and ABPVN are built in and work offline. Enabled lists are refreshed every 4 days." = "EasyList và ABPVN được tích hợp sẵn, hoạt động ngoại tuyến. Danh sách đang bật được làm mới mỗi 4 ngày.";
@@ -253,6 +263,7 @@
 "New Extension" = "Tiện ích mới";
 "New Folder" = "Thư mục mới";
 "New Private Tab" = "Tab riêng tư mới";
+"New Speech Model" = "Mô hình giọng nói mới";
 "New Tab" = "Tab mới";
 "Night" = "Ban đêm";
 "Night Mode" = "Ban đêm";
@@ -265,6 +276,8 @@
 "No video found. Start playing the video in the page first." = "Không tìm thấy video. Hãy phát video trên trang trước.";
 "None" = "Không có";
 "Normal" = "Thường";
+"Not Downloaded" = "Chưa tải";
+"Not Now" = "Để sau";
 "Not Set" = "Chưa đặt";
 "Not Supported" = "Không hỗ trợ";
 "OK" = "OK";
@@ -376,6 +389,8 @@
 "Security" = "Bảo mật";
 "Select All" = "Chọn tất cả";
 "Select Folder" = "Chọn thư mục";
+"SenseVoice Model" = "Mô hình SenseVoice";
+"SenseVoice is a free model that runs on the device. It is far more accurate for Chinese, English, Japanese, Korean and Cantonese, adds punctuation and detects which of them is spoken in about a second. Other languages use Apple's recognizer (its newest on-device model on iOS 26)." = "SenseVoice là mô hình miễn phí chạy ngay trên máy. Mô hình chính xác hơn nhiều với tiếng Trung, Anh, Nhật, Hàn và Quảng Đông, tự thêm dấu câu và nhận biết ngôn ngữ đang nói trong khoảng một giây. Các ngôn ngữ khác dùng bộ nhận dạng của Apple (mô hình mới nhất trên iOS 26).";
 "Sent" = "Đã gửi";
 "Separate multiple rules with @@. Use * as wildcard, or /regex/." = "Ngăn cách nhiều quy tắc bằng @@. Dùng * làm ký tự đại diện, hoặc /regex/.";
 "Sepia" = "Nâu đỏ";
@@ -396,6 +411,7 @@
 "Skip Video Ads" = "Bỏ qua quảng cáo video";
 "Snapshot" = "Chụp màn hình";
 "Sort" = "Sắp xếp";
+"Speech Recognition" = "Nhận dạng giọng nói";
 "Speech in videos (English, Japanese, Chinese…) becomes subtitles in your language. How should they look?" = "Lời nói trong video (Anh, Nhật, Trung…) thành phụ đề theo ngôn ngữ của bạn. Bạn muốn hiển thị thế nào?";
 "Speech recognition is not available for this language." = "Không hỗ trợ nhận dạng giọng nói cho ngôn ngữ này.";
 "Spoken Language" = "Ngôn ngữ nói";
@@ -456,6 +472,7 @@
 "User Agent" = "User Agent";
 "User Hide Ad" = "Quảng cáo đã ẩn";
 "Username" = "Tên người dùng";
+"Using the new speech model" = "Đã chuyển sang mô hình giọng nói mới";
 "Version" = "Phiên bản";
 "Very Beginning" = "Ngay từ đầu";
 "Video" = "Video";

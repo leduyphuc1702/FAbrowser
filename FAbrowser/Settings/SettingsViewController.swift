@@ -72,6 +72,7 @@ final class SettingsViewController: UITableViewController, PHPickerViewControlle
         }
         NotificationCenter.default.addObserver(self, selector: #selector(rebuild), name: .searchEnginesChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(rebuild), name: .adBlockRulesChanged, object: nil)
+        if page == .subtitles { NotificationCenter.default.addObserver(self, selector: #selector(rebuild), name: SenseVoiceModel.changed, object: nil) }
         NotificationCenter.default.addObserver(forName: .prefsChanged, object: "translateTarget", queue: .main) { [weak self] _ in self?.refreshPackStatus() }
         rebuild()
     }
@@ -423,6 +424,11 @@ final class SettingsViewController: UITableViewController, PHPickerViewControlle
                     .nav(L("Translate to"), detail: { TranslateLanguages.name(Prefs.translateTarget) }) { vc in vc.push(.translate) },
                     SettingRow(title: L("Font Size"), kind: .slider(min: 12, max: 30, get: { Float(Prefs.subtitleFontSize) }, set: { Prefs.subtitleFontSize = Double($0.rounded()) })),
                 ]),
+                SettingSection(title: L("Speech Recognition"), footer: L("SenseVoice is a free model that runs on the device. It is far more accurate for Chinese, English, Japanese, Korean and Cantonese, adds punctuation and detects which of them is spoken in about a second. Other languages use Apple's recognizer (its newest on-device model on iOS 26)."), rows: [
+                    .choice(L("Engine"), Self.speechEngines.map(\.name), get: { Self.speechEngines.firstIndex { $0.code == Prefs.subtitleEngine } ?? 0 },
+                            set: { Prefs.subtitleEngine = Self.speechEngines[$0].code; LiveSubtitles.shared.restartRecognition() }),
+                    .nav(L("SenseVoice Model"), detail: { SenseVoiceModel.statusText }) { vc in vc.manageSenseVoiceModel() },
+                ]),
             ]
 
         case .userAgent:
@@ -528,6 +534,42 @@ final class SettingsViewController: UITableViewController, PHPickerViewControlle
                 self.showAlert(L("Translate"), message: error.localizedDescription)
             }
             self.refreshPackStatus()
+        }
+    }
+
+    static var speechEngines: [(code: String, name: String)] {
+        [("auto", L("Automatic")), ("sensevoice", "SenseVoice")]
+            + (SpeechEngine.modernAvailable ? [("apple", L("New Speech Model"))] : [])
+            + [("basic", L("Basic Speech Model"))]
+    }
+
+    fileprivate func manageSenseVoiceModel() {
+        if SenseVoiceModel.progress != nil {
+            let sheet = UIAlertController(title: L("SenseVoice Model"), message: SenseVoiceModel.statusText, preferredStyle: .actionSheet)
+            sheet.addAction(UIAlertAction(title: L("Cancel Download"), style: .destructive) { _ in SenseVoiceModel.cancel() })
+            sheet.addAction(UIAlertAction(title: L("Cancel"), style: .cancel))
+            presentSheet(sheet)
+        } else if SenseVoiceModel.isDownloaded {
+            let sheet = UIAlertController(title: L("SenseVoice Model"), message: SenseVoiceModel.statusText, preferredStyle: .actionSheet)
+            sheet.addAction(UIAlertAction(title: L("Delete"), style: .destructive) { _ in
+                SenseVoiceModel.delete()
+                LiveSubtitles.shared.restartRecognition()
+            })
+            sheet.addAction(UIAlertAction(title: L("Cancel"), style: .cancel))
+            presentSheet(sheet)
+        } else {
+            let a = UIAlertController(title: L("SenseVoice Model"), message: String(format: L("Download the SenseVoice speech model (%d MB, free, works offline)? It recognizes Chinese, English, Japanese, Korean and Cantonese far more accurately and detects the spoken language in about a second."), SenseVoiceModel.downloadMB), preferredStyle: .alert)
+            a.addAction(UIAlertAction(title: L("Cancel"), style: .cancel))
+            a.addAction(UIAlertAction(title: L("Download"), style: .default) { [weak self] _ in
+                if LiveSubtitles.shared.isOn {
+                    LiveSubtitles.shared.downloadSenseVoice()
+                } else {
+                    SenseVoiceModel.download { error in
+                        if let error, !(error is CancellationError) { self?.showAlert(L("Couldn't download the speech model."), message: error.localizedDescription) }
+                    }
+                }
+            })
+            present(a, animated: true)
         }
     }
 

@@ -12,7 +12,7 @@ enum SubtitleMode: Int, CaseIterable {
 enum SubtitleLanguages {
     /// Speech recognizer locales offered for the spoken language.
     static let sources: [(code: String, name: String)] = [
-        ("auto", L("Auto Detect (EN/JA/ZH)")), ("en-US", "English"), ("ja-JP", "日本語"), ("zh-CN", "中文 (普通话)"),
+        ("auto", L("Auto Detect")), ("en-US", "English"), ("ja-JP", "日本語"), ("zh-CN", "中文 (普通话)"),
         ("zh-TW", "中文 (台灣)"), ("yue-CN", "粵語"), ("ko-KR", "한국어"), ("vi-VN", "Tiếng Việt"), ("th-TH", "ไทย"),
         ("fr-FR", "Français"), ("de-DE", "Deutsch"), ("es-ES", "Español"), ("ru-RU", "Русский"), ("id-ID", "Bahasa Indonesia"),
     ]
@@ -35,6 +35,10 @@ enum SubtitleLanguages {
 /// Speech-to-text + offline translation for whatever audio FAbrowser is playing.
 /// Audio comes from an MTAudioProcessingTap on the native player (progressive files) or,
 /// for HLS and in-page video, from ReplayKit's app-audio capture.
+///
+/// Spoken language: with SenseVoice the model identifies it. Otherwise a guess from the site/title/page
+/// starts subtitles immediately while the other candidate languages run alongside for a few seconds;
+/// the best-fitting recognizer wins.
 final class LiveSubtitles: NSObject {
     static let shared = LiveSubtitles()
 
@@ -45,37 +49,69 @@ final class LiveSubtitles: NSObject {
     var onStateChange: ((Bool) -> Void)?
     weak var overlay: SubtitleOverlayView?
 
-    private var channels: [RecognitionChannel] = []
+    private var channels: [SpeechChannel] = [] {
+        didSet { sinkLock.lock(); sinks = channels; sinkLock.unlock() }
+    }
+    private let sinkLock = NSLock()
+    private var sinks: [SpeechChannel] = []
     private(set) var resolvedLocale: String?
-    private var detectStart = Date()
+    private var provisional = false
+    private var firstHeard: Date?
+    private var hint: SubtitleHint?
+    private var generation = 0
+    private var finalText = ""
+    private var partialText = ""
+    private var lastTextChange = Date.distantPast
+    private var shownUnit = ""
+    private var recentStable: [String] = []
+    private var displayedGeneration = 0
+    private var upgrading: String?
+    private var senseVoiceFailed = false
+    private weak var presenter: UIViewController?
     private var tap: PlayerAudioTap?
     private weak var playerItem: AVPlayerItem?
     private var usingReplayKit = false
     private var tick: Timer?
-    private var lastPartialTranslate = Date.distantPast
+    private var lastInterimTranslate = Date.distantPast
     private var translateGeneration = 0
     private var lastUpdate = Date()
 
     var mode: SubtitleMode { SubtitleMode(rawValue: Prefs.subtitleModeRaw) ?? .translation }
 
+    /// Name of the engine in use, for the settings page.
+    var engineName: String? {
+        guard isOn, let ch = channels.first(where: { $0.locale == resolvedLocale }) ?? channels.first else { return nil }
+        switch ch.kind {
+        case .senseVoice: return "SenseVoice"
+        case .apple: return L("New Speech Model")
+        case .basic: return L("Basic Speech Model")
+        }
+    }
+
     // MARK: Public control
 
-    func start(target: Target, overlay: SubtitleOverlayView, item: AVPlayerItem?, presenter: UIViewController) {
+    func start(target: Target, overlay: SubtitleOverlayView, item: AVPlayerItem?, presenter: UIViewController, hint: SubtitleHint? = nil) {
         stop()
         self.target = target
         self.overlay = overlay
+        self.hint = hint
+        self.presenter = presenter
+        senseVoiceFailed = false
         requestPermission(presenter: presenter) { [weak self] ok in
             guard let self, ok else { return }
             self.isOn = true
             self.onStateChange?(true)
-            overlay.showStatus(L("Listening…"))
             self.startRecognition()
             if target == .player, let item { self.attachAudio(to: item) } else { self.startReplayKit() }
             self.tick = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in self?.onTick() }
+            if SpeechEngine.senseVoiceAllowed, !SenseVoiceModel.isDownloaded, SenseVoiceModel.progress == nil, !Prefs.senseVoiceOffered {
+                self.offerSenseVoice()
+            }
         }
     }
 
     func stop() {
+        generation += 1
         tick?.invalidate()
         tick = nil
         channels.forEach { $0.stop() }
@@ -89,16 +125,13 @@ final class LiveSubtitles: NSObject {
         let was = isOn
         isOn = false
         resolvedLocale = nil
+        resetText()
         if was { onStateChange?(false) }
     }
 
     /// Restart recognition after the user changes the spoken language.
     func restartRecognition() {
         guard isOn else { return }
-        channels.forEach { $0.stop() }
-        channels = []
-        resolvedLocale = nil
-        overlay?.showStatus(L("Listening…"))
         startRecognition()
     }
 
@@ -116,6 +149,8 @@ final class LiveSubtitles: NSObject {
     // MARK: Permission
 
     private func requestPermission(presenter: UIViewController, completion: @escaping (Bool) -> Void) {
+        // SenseVoice runs entirely in the app and needs no Speech Recognition permission.
+        if SpeechEngine.senseVoiceHandles(Prefs.subtitleSource) { completion(true); return }
         SFSpeechRecognizer.requestAuthorization { status in
             DispatchQueue.main.async {
                 if status == .authorized { completion(true); return }
@@ -132,13 +167,18 @@ final class LiveSubtitles: NSObject {
 
     // MARK: Audio sources
 
+    private func forEachSink(_ body: (SpeechChannel) -> Void) {
+        sinkLock.lock(); let s = sinks; sinkLock.unlock()
+        s.forEach(body)
+    }
+
     private func attachAudio(to item: AVPlayerItem) {
         playerItem = item
         Task { @MainActor in
             let tracks = (try? await item.asset.loadTracks(withMediaType: .audio)) ?? []
             guard self.isOn, self.playerItem === item else { return }
             if let track = tracks.first, let tap = PlayerAudioTap(track: track) {
-                tap.onBuffer = { [weak self] buf in self?.channels.forEach { $0.append(buf) } }
+                tap.onBuffer = { [weak self] buf in self?.forEachSink { $0.append(buf) } }
                 item.audioMix = tap.audioMix
                 self.tap = tap
             } else {
@@ -164,7 +204,7 @@ final class LiveSubtitles: NSObject {
         usingReplayKit = true
         rec.startCapture(handler: { [weak self] sample, type, error in
             guard error == nil, type == .audioApp, let self else { return }
-            self.channels.forEach { $0.append(sample) }
+            self.forEachSink { $0.append(sample) }
         }, completionHandler: { [weak self] error in
             guard let error else { return }
             DispatchQueue.main.async {
@@ -177,48 +217,207 @@ final class LiveSubtitles: NSObject {
     // MARK: Recognition
 
     private func startRecognition() {
+        generation += 1
+        let gen = generation
+        channels.forEach { $0.stop() }
+        channels = []
+        resolvedLocale = nil
+        provisional = false
+        firstHeard = nil
+        resetText()
+
         let chosen = Prefs.subtitleSource
-        let locales = chosen == "auto" ? SubtitleLanguages.autoCandidates : [chosen]
-        detectStart = Date()
-        channels = locales.compactMap { loc in
-            let ch = RecognitionChannel(locale: loc)
-            ch?.onPartial = { [weak self, weak ch] text in
-                guard let self, let ch, ch.locale == self.resolvedLocale || (self.channels.count == 1) else { return }
-                self.showPartial(text, locale: ch.locale)
-            }
-            ch?.onFinal = { [weak self, weak ch] text in
-                guard let self, let ch else { return }
-                if self.resolvedLocale == nil { self.evaluateDetection() }
-                if ch.locale == self.resolvedLocale || self.channels.count == 1 { self.commit(text, locale: ch.locale) }
-            }
-            return ch
+        var locales = [chosen]
+        var prior: String?
+        if chosen == "auto" {
+            prior = LanguageGuess.prior(hint)
+            locales = SubtitleLanguages.autoCandidates
+            if let p = prior { locales.removeAll { $0 == p }; locales.insert(p, at: 0) }
         }
-        if channels.isEmpty {
-            overlay?.showStatus(L("Speech recognition is not available for this language."))
+        overlay?.showStatus(locales.count > 1 && prior == nil ? L("Detecting spoken language…") : L("Listening…"))
+
+        if !senseVoiceFailed, SpeechEngine.senseVoiceHandles(chosen) {
+            startSenseVoice(locale: chosen == "auto" ? nil : chosen)
             return
         }
-        if channels.count == 1 { resolvedLocale = channels[0].locale }
-        channels.forEach { $0.start() }
-        if channels.count > 1 { overlay?.showStatus(L("Detecting spoken language…")) }
+
+        Task { @MainActor in
+            var made: [SpeechChannel] = []
+            for loc in locales {
+                if let ch = await SpeechEngine.makeChannel(loc) { made.append(ch) }
+            }
+            guard gen == self.generation, self.isOn else { return }
+            guard !made.isEmpty else {
+                self.overlay?.showStatus(L("Speech recognition is not available for this language."))
+                return
+            }
+            made.forEach(self.wire)
+            self.log("channels " + made.map { $0.locale + "(\($0.kind))" }.joined(separator: ",") + " prior=" + (prior ?? "-"))
+            self.channels = made
+            if made.count == 1 {
+                self.resolve(made[0], provisional: false)
+            } else if let p = prior, let ch = made.first(where: { $0.locale == p }) {
+                self.resolve(ch, provisional: true)
+            }
+            made.forEach { $0.start() }
+        }
     }
 
-    /// Picks the auto-detect candidate whose recognizer is most confident, then stops the others.
+    /// One SenseVoice channel replaces the per-language recognizers: it identifies the language itself.
+    private func startSenseVoice(locale: String?) {
+        let ch = SenseVoiceChannel(locale: locale)
+        wire(ch)
+        ch.onLanguage = { [weak self, weak ch] _ in
+            guard let self, let ch, self.channels.first === ch else { return }
+            self.resolve(ch, provisional: false)
+        }
+        channels = [ch]
+        log("channels sensevoice " + (locale ?? "auto"))
+        if locale != nil { resolve(ch, provisional: false) }
+        ch.start()
+    }
+
+    private func offerSenseVoice() {
+        guard let presenter, presenter.view.window != nil, presenter.presentedViewController == nil else { return }
+        Prefs.senseVoiceOffered = true
+        let a = UIAlertController(title: L("Better Subtitles"), message: String(format: L("Download the SenseVoice speech model (%d MB, free, works offline)? It recognizes Chinese, English, Japanese, Korean and Cantonese far more accurately and detects the spoken language in about a second."), SenseVoiceModel.downloadMB), preferredStyle: .alert)
+        a.addAction(UIAlertAction(title: L("Not Now"), style: .cancel))
+        a.addAction(UIAlertAction(title: L("Download"), style: .default) { [weak self] _ in self?.downloadSenseVoice() })
+        presenter.present(a, animated: true)
+    }
+
+    /// Downloads the SenseVoice model and switches to it if subtitles are still on.
+    func downloadSenseVoice() {
+        SenseVoiceModel.download(progress: { [weak self] p in
+            guard let self, self.isOn else { return }
+            self.overlay?.showStatus(String(format: L("Downloading speech model… %d%%"), Int(p * 100)), duration: 2)
+        }, completion: { [weak self] error in
+            guard let self, self.isOn else { return }
+            if let error {
+                if !(error is CancellationError) { self.overlay?.showStatus(L("Couldn't download the speech model.") + " " + error.localizedDescription, duration: 3) }
+                return
+            }
+            guard SpeechEngine.senseVoiceHandles(Prefs.subtitleSource) else { return }
+            self.senseVoiceFailed = false
+            self.startRecognition()
+            self.overlay?.showStatus(L("Using the new speech model"), duration: 2)
+        })
+    }
+
+    private func wire(_ ch: SpeechChannel) {
+        ch.onPartial = { [weak self, weak ch] text in
+            guard let self, let ch else { return }
+            if self.firstHeard == nil { self.firstHeard = Date() }
+            guard ch.locale == self.resolvedLocale else { return }
+            self.partialText = text
+            self.textChanged()
+        }
+        ch.onFinal = { [weak self, weak ch] text in
+            guard let self, let ch else { return }
+            if self.firstHeard == nil { self.firstHeard = Date() }
+            guard ch.locale == self.resolvedLocale else { return }
+            self.partialText = ""
+            self.finalText = Sentences.join(self.finalText, text, cjk: SubtitleLanguages.isCJK(ch.locale))
+            if self.finalText.count > 500 { self.finalText = String(self.finalText.suffix(300)) }
+            self.textChanged()
+        }
+        ch.onFailure = { [weak self, weak ch] error in
+            guard let self, let ch else { return }
+            self.channelFailed(ch, error)
+        }
+    }
+
+    /// The new engine can refuse to run (no resources, model removed): fall back to the basic one.
+    private func channelFailed(_ ch: SpeechChannel, _ error: Error) {
+        guard let i = channels.firstIndex(where: { $0 === ch }) else { return }
+        ch.stop()
+        if ch.kind == .senseVoice {
+            senseVoiceFailed = true
+            overlay?.showStatus(error.localizedDescription, duration: 3)
+            startRecognition()
+            return
+        }
+        if ch.kind == .apple, let legacy = LegacySpeechChannel(locale: ch.locale) {
+            wire(legacy)
+            channels[i] = legacy
+            legacy.start()
+            return
+        }
+        channels.remove(at: i)
+        if channels.isEmpty {
+            overlay?.showStatus(error.localizedDescription, duration: 4)
+        } else if ch.locale == resolvedLocale, channels.count == 1 {
+            resolve(channels[0], provisional: false)
+        }
+    }
+
+    private func resolve(_ ch: SpeechChannel, provisional: Bool) {
+        if resolvedLocale != ch.locale {
+            resolvedLocale = ch.locale
+            resetText()
+            // Show what the winning recognizer already heard instead of starting blank.
+            finalText = ch.finalTranscript
+            partialText = ch.volatileTranscript
+            if !finalText.isEmpty || !partialText.isEmpty { textChanged() }
+        }
+        self.provisional = provisional
+        log("resolve \(ch.locale) provisional=\(provisional) after " + (firstHeard.map { String(format: "%.1fs", Date().timeIntervalSince($0)) } ?? "-") + " scores=" + channels.map { $0.locale + String(format: ":%.2f", LanguageGuess.score($0)) }.joined(separator: " "))
+        overlay?.showStatus(SubtitleLanguages.name(ch.locale), duration: provisional ? 2 : 1.5)
+        guard !provisional else { return }
+        channels.filter { $0 !== ch }.forEach { $0.stop() }
+        channels = [ch]
+        if Prefs.subtitleSource == "auto" { LanguageGuess.remember(ch.locale, host: hint?.host) }
+        upgradeIfPossible(ch)
+    }
+
+    /// Picks the candidate whose output best fits its own language. Decides as soon as one
+    /// recognizer clearly leads instead of waiting for every recognizer to finish a sentence.
     private func evaluateDetection() {
-        guard resolvedLocale == nil, channels.count > 1 else { return }
-        let ready = channels.filter { $0.finalCount > 0 }
-        let waited = Date().timeIntervalSince(detectStart)
-        guard ready.count == channels.count || (waited > 10 && !ready.isEmpty) else { return }
-        let best = ready.max { $0.score < $1.score }!
-        resolvedLocale = best.locale
-        channels.filter { $0 !== best }.forEach { $0.stop() }
-        channels = [best]
-        overlay?.showStatus(SubtitleLanguages.name(best.locale), duration: 1.2)
+        guard let heardAt = firstHeard,
+              let best = LanguageGuess.decide(channels, favoring: provisional ? resolvedLocale : nil, elapsed: Date().timeIntervalSince(heardAt)) else { return }
+        resolve(best, provisional: false)
+    }
+
+    /// Basic recognizer in use but the new on-device model supports this language: fetch it and switch.
+    private func upgradeIfPossible(_ ch: SpeechChannel) {
+        guard !ch.isModern, upgrading == nil else { return }
+        let locale = ch.locale
+        let gen = generation
+        Task { @MainActor in
+            guard await SpeechEngine.canUpgrade(locale) else { return }
+            self.upgrading = locale
+            defer { self.upgrading = nil }
+            do {
+                try await SpeechEngine.download(locale) { [weak self] p in
+                    guard let self, self.isOn else { return }
+                    self.overlay?.showStatus(String(format: L("Downloading speech model… %d%%"), Int(p * 100)), duration: 2)
+                }
+            } catch {
+                self.overlay?.showStatus(L("Couldn't download the speech model.") + " " + error.localizedDescription, duration: 3)
+                return
+            }
+            guard gen == self.generation, self.isOn, self.channels.count == 1, self.channels[0] === ch,
+                  let modern = await SpeechEngine.makeChannel(locale), modern.isModern,
+                  gen == self.generation, self.channels.first === ch else { return }
+            self.wire(modern)
+            modern.start()
+            self.channels = [modern]
+            ch.stop()
+            self.overlay?.showStatus(L("Using the new speech model"), duration: 2)
+        }
     }
 
     private func onTick() {
         channels.forEach { $0.tick() }
-        if resolvedLocale == nil, Date().timeIntervalSince(detectStart) > 10 { evaluateDetection() }
+        if channels.count > 1 { evaluateDetection() }
+        if Date().timeIntervalSince(lastTextChange) > 1.4 { refreshDisplay() }
         if Date().timeIntervalSince(lastUpdate) > 6 { overlay?.fadeOut() }
+    }
+
+    private func log(_ s: String) {
+        #if DEBUG
+        NSLog("[subs] %@", s)
+        #endif
     }
 
     // MARK: Display
@@ -227,19 +426,48 @@ final class LiveSubtitles: NSObject {
         mode != .original && SubtitleLanguages.translationCode(locale) != TranslateLanguages.normalize(Prefs.translateTarget)
     }
 
-    private func showPartial(_ text: String, locale: String) {
-        lastUpdate = Date()
-        guard needsTranslation(locale) else { overlay?.show(original: text, translated: nil, mode: .original); return }
-        if mode == .bilingual { overlay?.updateOriginal(text) }
-        guard Date().timeIntervalSince(lastPartialTranslate) > 0.7 else { return }
-        lastPartialTranslate = Date()
-        translate(text, locale: locale, final: false)
+    private func resetText() {
+        finalText = ""
+        partialText = ""
+        shownUnit = ""
+        recentStable = []
     }
 
-    private func commit(_ text: String, locale: String) {
+    private func textChanged() {
         lastUpdate = Date()
-        guard needsTranslation(locale) else { overlay?.show(original: text, translated: nil, mode: .original); return }
-        translate(text, locale: locale, final: true)
+        lastTextChange = Date()
+        refreshDisplay()
+    }
+
+    /// Shows the last complete sentence, or the sentence in progress once it is long enough.
+    /// Complete sentences are translated (and cached) once; the one in progress is re-translated
+    /// at most every 0.8 s and replaced when it completes.
+    private func refreshDisplay() {
+        guard let locale = resolvedLocale else { return }
+        let cjk = SubtitleLanguages.isCJK(locale)
+        let live = Sentences.join(finalText, partialText, cjk: cjk)
+        let paused = Date().timeIntervalSince(lastTextChange) > 1.4
+        guard let unit = Sentences.displayUnit(live, cjk: cjk, paused: paused), unit.text != shownUnit else { return }
+        // Never step back to a sentence that newer text already replaced.
+        if unit.stable {
+            guard !recentStable.contains(unit.text) else { return }
+            recentStable.append(unit.text)
+            if recentStable.count > 6 { recentStable.removeFirst() }
+        }
+        guard needsTranslation(locale) else {
+            shownUnit = unit.text
+            overlay?.show(original: unit.text, translated: nil, mode: .original)
+            return
+        }
+        if !unit.stable {
+            guard Date().timeIntervalSince(lastInterimTranslate) > 0.8 else { return }
+            lastInterimTranslate = Date()
+        } else {
+            log("sentence: " + unit.text)
+        }
+        shownUnit = unit.text
+        if mode == .bilingual { overlay?.updateOriginal(unit.text) }
+        translate(unit.text, locale: locale, final: unit.stable)
     }
 
     private func translate(_ text: String, locale: String, final: Bool) {
@@ -248,156 +476,18 @@ final class LiveSubtitles: NSObject {
         let mode = self.mode
         Task { @MainActor in
             do {
-                let out = try await TranslationService.shared.translate([text], from: SubtitleLanguages.translationCode(locale), to: Prefs.translateTarget)
-                guard final || gen == self.translateGeneration else { return }
+                let out = try await TranslationService.shared.translate([text], from: SubtitleLanguages.translationCode(locale), to: Prefs.translateTarget, cache: final)
+                // Results can arrive out of order; never replace a newer caption with an older one.
+                guard self.isOn, gen > self.displayedGeneration else { return }
+                self.displayedGeneration = gen
                 self.overlay?.show(original: text, translated: out.first, mode: mode)
             } catch {
+                guard self.isOn, gen > self.displayedGeneration else { return }
+                self.displayedGeneration = gen
                 self.overlay?.show(original: text, translated: nil, mode: .original)
                 if final { self.overlay?.showStatus(error.localizedDescription, duration: 3) }
             }
         }
-    }
-}
-
-/// One SFSpeechRecognizer stream. Requests are rotated at pauses so every utterance gets a final result.
-final class RecognitionChannel {
-    let locale: String
-    var onPartial: ((String) -> Void)?
-    var onFinal: ((String) -> Void)?
-    private(set) var finalCount = 0
-    private var confidenceSum: Double = 0
-    private var charSum = 0
-
-    private let recognizer: SFSpeechRecognizer
-    private let lock = NSLock()
-    private var request: SFSpeechAudioBufferRecognitionRequest?
-    private var task: SFSpeechRecognitionTask?
-    private var token = 0
-    private var partial = ""
-    private var partialChanged = Date()
-    private var requestStart = Date()
-    private var active = false
-
-    init?(locale: String) {
-        guard let r = SFSpeechRecognizer(locale: Locale(identifier: locale)), r.isAvailable else { return nil }
-        self.locale = locale
-        recognizer = r
-        recognizer.defaultTaskHint = .dictation
-    }
-
-    var score: Double {
-        guard finalCount > 0 else { return 0 }
-        return confidenceSum / Double(finalCount) + min(Double(charSum), 60) / 600
-    }
-
-    func start() {
-        active = true
-        newRequest()
-    }
-
-    func stop() {
-        active = false
-        lock.lock()
-        request?.endAudio()
-        task?.cancel()
-        request = nil
-        task = nil
-        lock.unlock()
-    }
-
-    func append(_ buffer: AVAudioPCMBuffer) {
-        lock.lock(); let r = request; lock.unlock()
-        r?.append(buffer)
-    }
-
-    func append(_ sample: CMSampleBuffer) {
-        lock.lock(); let r = request; lock.unlock()
-        r?.appendAudioSampleBuffer(sample)
-    }
-
-    /// Called on the main thread every 250 ms.
-    func tick() {
-        guard active, !partial.isEmpty else { return }
-        let maxLen = SubtitleLanguages.isCJK(locale) ? 38 : 110
-        let paused = Date().timeIntervalSince(partialChanged) > 0.9
-        if paused || partial.count > maxLen || Date().timeIntervalSince(requestStart) > 14 { rotate() }
-    }
-
-    private func newRequest() {
-        let req = SFSpeechAudioBufferRecognitionRequest()
-        req.shouldReportPartialResults = true
-        req.taskHint = .dictation
-        if recognizer.supportsOnDeviceRecognition { req.requiresOnDeviceRecognition = true }
-        if #available(iOS 16.0, *) { req.addsPunctuation = true }
-        token += 1
-        let myToken = token
-        partial = ""
-        requestStart = Date()
-        let t = recognizer.recognitionTask(with: req) { [weak self] result, error in
-            DispatchQueue.main.async { self?.handle(result: result, error: error, token: myToken) }
-        }
-        lock.lock()
-        request = req
-        task = t
-        lock.unlock()
-    }
-
-    private var pendingFinal: [Int: String] = [:]
-
-    private func rotate() {
-        let oldToken = token
-        pendingFinal[oldToken] = partial
-        lock.lock()
-        let oldRequest = request
-        lock.unlock()
-        newRequest()
-        oldRequest?.endAudio()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-            guard let self, let text = self.pendingFinal.removeValue(forKey: oldToken), !text.isEmpty else { return }
-            self.emitFinal(text, confidence: 0.5)
-        }
-    }
-
-    private func handle(result: SFSpeechRecognitionResult?, error: Error?, token t: Int) {
-        if let result {
-            let text = result.bestTranscription.formattedString
-            if result.isFinal {
-                if t == token {
-                    partial = ""
-                    if !text.isEmpty { emitFinal(text, confidence: Self.confidence(result)) }
-                    if active { newRequest() }
-                } else if pendingFinal.removeValue(forKey: t) != nil, !text.isEmpty {
-                    emitFinal(text, confidence: Self.confidence(result))
-                }
-                return
-            }
-            if t == token, text != partial {
-                partial = text
-                partialChanged = Date()
-                onPartial?(text)
-            }
-        }
-        if error != nil, t == token, active {
-            if !partial.isEmpty { emitFinal(partial, confidence: 0.4); partial = "" }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-                guard let self, self.active, self.token == t else { return }
-                self.newRequest()
-            }
-        }
-    }
-
-    private func emitFinal(_ text: String, confidence: Double) {
-        finalCount += 1
-        confidenceSum += confidence
-        charSum += text.count
-        onFinal?(text)
-    }
-
-    private static func confidence(_ r: SFSpeechRecognitionResult) -> Double {
-        let segs = r.bestTranscription.segments
-        guard !segs.isEmpty else { return 0 }
-        let total = segs.reduce(0.0) { $0 + max($1.duration, 0.05) }
-        return segs.reduce(0.0) { $0 + Double($1.confidence) * max($1.duration, 0.05) } / total
     }
 }
 

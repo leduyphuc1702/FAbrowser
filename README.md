@@ -50,7 +50,8 @@ Bấm phát là video trên trang tách ra trình phát riêng. Bạn vẫn lư�
 ### Phụ đề trực tiếp
 Chuyển lời nói trong **bất kỳ video nào** thành phụ đề, rồi dịch ngay trên máy sang ngôn ngữ bạn chọn khi mở app lần đầu.
 
-- Tự nhận diện **Anh, Nhật, Trung** (và Hàn, Thái, Pháp, Đức, Nga…) bằng Speech framework, ưu tiên chạy trên máy
+- Nhận dạng giọng **Trung, Anh, Nhật, Hàn, Quảng Đông** bằng mô hình **SenseVoiceSmall** (miễn phí, chạy hoàn toàn trên máy, tải 239 MB một lần), nhận ra ngôn ngữ sau khoảng 1–2 giây. Phụ đề hiện theo từng câu hoàn chỉnh
+- Ngôn ngữ khác (Việt, Thái, Pháp, Đức, Nga…) dùng **SpeechAnalyzer** của Apple trên iOS 26, hoặc Speech framework trên iOS cũ hơn. Đổi bộ nhận dạng trong Cài đặt › Phụ đề
 - Hiển thị **chỉ bản dịch**, **song ngữ** hoặc **bản gốc**, chỉnh được cỡ chữ
 - Chạy được với file video thường (gắn trực tiếp vào âm thanh của trình phát), với HLS và với video phát ngay trong trang
 
@@ -134,6 +135,7 @@ Chặn quảng cáo bằng `WKContentRuleList` của WebKit kết hợp script c
 ```bash
 git clone https://github.com/leduyphuc1702/FAbrowser.git
 cd FAbrowser
+scripts/fetch-sherpa-onnx.sh      # tải sherpa-onnx (SenseVoice) vào Vendor/
 xcodegen generate                 # sinh FAbrowser.xcodeproj từ project.yml
 open FAbrowser.xcodeproj
 ```
@@ -169,7 +171,8 @@ FAbrowser/
 ├── Video/          VideoSniffer (JS dò video, nhận diện quảng cáo), FloatingPlayer, PlayerControlsView,
 │                   VideoProxy (proxy loopback tải song song + cache)
 ├── Translate/      TranslationService (Apple Translation + TranslationCache), PageTranslator (JS + thanh dịch/đề xuất)
-├── Subtitles/      LiveSubtitles (Speech + audio tap + ReplayKit, overlay phụ đề)
+├── Subtitles/      LiveSubtitles (audio tap + ReplayKit, overlay phụ đề), SpeechChannels (Apple Speech),
+│                   SenseVoice (sherpa-onnx + Silero VAD, tải mô hình)
 ├── Models/         TabManager, AdBlocker + ABPConverter, ScriptManager, Bookmark/History/Search stores
 ├── Settings/       Settings (khai báo bằng SettingRow), Onboarding, Extensions
 ├── Home/ Search/ Tabs/ Library/ Menu/ Files/ Tools/
@@ -183,8 +186,10 @@ FAbrowser/
 flowchart LR
     A[Video file<br/>AVPlayerItem] -->|MTAudioProcessingTap| C
     B[HLS / video trong trang] -->|ReplayKit app audio| C
-    C[Bộ đệm âm thanh] --> D{Speech<br/>en · ja · zh chạy song song}
-    D -->|chọn kênh tin cậy nhất| E[Câu gốc]
+    C[Bộ đệm âm thanh] --> V[Silero VAD] --> S[SenseVoiceSmall<br/>zh · en · ja · ko · yue<br/>tự nhận ngôn ngữ]
+    C --> D[Apple SpeechAnalyzer / Speech<br/>ngôn ngữ khác]
+    S --> E[Câu gốc]
+    D --> E
     E --> F[Apple Translation<br/>on-device]
     F --> G[Overlay<br/>bản dịch / song ngữ]
     E --> G
@@ -256,6 +261,7 @@ xcrun simctl launch booted com.fabrowser.app -FAProxyLog YES -FAPlayURL https://
 
 - Dịch trang và dịch phụ đề cần iOS 18. Gói ngôn ngữ được tải khi dùng lần đầu. Trên Simulator, Apple Translation có thể báo cặp ngôn ngữ không hỗ trợ.
 - Phụ đề cho HLS/video trong trang dùng ReplayKit, nên iOS sẽ hỏi quyền ghi màn hình.
+- SenseVoice không hỗ trợ tiếng Việt; phụ đề tiếng Việt dùng nhận dạng của Apple. Bản build cần chạy `scripts/fetch-sherpa-onnx.sh` trước (thư mục `Vendor/` không nằm trong git).
 - ABPConverter hỗ trợ quy tắc mạng (`||domain^`, `$third-party`/`3p`, `$domain=`/`from=`, `@@`), `$removeparam`, hosts file và quy tắc ẩn `##`. Quy tắc nâng cao (`#?#`, `#$#`, scriptlet, `:has()`) sẽ bị bỏ qua.
 - Tăng tốc tải video chỉ áp dụng cho trình phát nổi native, không áp dụng cho trình phát trong trang. Trang phát bằng MSE/blob chỉ mở được khi trang đã tải file m3u8.
 - Nhận diện quảng cáo video dựa trên class, host và chữ "Ad/Quảng cáo/Skip". Trình phát quảng cáo lạ có thể vẫn bị nhận nhầm.

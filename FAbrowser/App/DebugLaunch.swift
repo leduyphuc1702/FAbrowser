@@ -8,6 +8,7 @@ import UIKit
 ///   -FAPlayURL https://…/video.mp4      open a video in the floating player (-FAScreen player.mini|player.full to change mode)
 ///   -FASkipOnboarding YES               don't show first-launch onboarding
 ///   -FAThenURL https://…                load a second page 14 s after launch (-FAThenBack YES goes back at 26 s)
+///   -FAPlayTitle "…"                    title for -FAPlayURL; -FALiveSubs YES starts live subtitles on it
 /// Example: xcrun simctl launch booted com.fabrowser.app -FAScreen menu
 enum DebugLaunch {
     static var skipsOnboarding: Bool { UserDefaults.standard.bool(forKey: "FASkipOnboarding") || UserDefaults.standard.string(forKey: "FAScreen") != nil && UserDefaults.standard.string(forKey: "FAScreen") != "onboarding" }
@@ -20,7 +21,10 @@ enum DebugLaunch {
         }
         if let s = d.string(forKey: "FAPlayURL"), let url = URL(string: s) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                browser.floatingPlayer.play(VideoSource(url: url, title: "Sample Video", pageURL: nil), in: browser)
+                browser.floatingPlayer.play(VideoSource(url: url, title: d.string(forKey: "FAPlayTitle") ?? "Sample Video", pageURL: nil), in: browser)
+            }
+            if d.bool(forKey: "FALiveSubs") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { browser.toggleSubtitles(forPlayer: true) }
             }
         }
         if let s = d.string(forKey: "FAThenURL"), let url = URL(string: s) {
