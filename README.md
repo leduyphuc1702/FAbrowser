@@ -39,7 +39,7 @@ Bấm phát là video trên trang tách ra trình phát riêng. Bạn vẫn lư�
 
 - Ba chế độ: **ghim trên đầu** (đẩy trang xuống), **cửa sổ mini** kéo thả tự do, và **toàn màn hình ngang** có khoá thao tác, giờ và pin
 - Tự mở cửa sổ khi bắt được video đang phát. Nhận ra quảng cáo pre-roll: để quảng cáo (và bộ đếm "bỏ qua sau 5s") chạy tiếp trong trang, rồi mới mở video chính
-- Cử chỉ: kéo ngang để tua (xem trước thời gian), kéo dọc **bên trái** chỉnh âm lượng, **bên phải** chỉnh độ sáng, chạm hai lần ở mép trái/phải để tua 5 giây, nhấn giữ để phát nhanh, chụm hai ngón để đổi tỉ lệ khung
+- Cử chỉ: kéo ngang để tua (xem trước thời gian), kéo dọc **bên trái** chỉnh âm lượng, **bên phải** chỉnh độ sáng (trái/phải tính theo khung hình, nên video 4:3 có viền đen vẫn đúng vùng), chạm hai lần ở mép trái/phải để tua 5 giây, nhấn giữ để phát nhanh, chụm hai ngón để đổi tỉ lệ khung
 - **Tăng tốc tải video**: proxy cục bộ tải song song nhiều đoạn (MP4 theo khúc 1 MB, HLS theo segment), tải trước phía trước điểm đang xem và cache trong bộ nhớ nên tua mượt hơn
 - Hình trong hình (PiP), phát trong nền, nhớ vị trí đang xem, tự thay video khi trang phát video mới
 - Chế độ tương thích cho những trang tự chặn trình phát

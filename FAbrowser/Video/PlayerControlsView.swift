@@ -261,6 +261,9 @@ final class PlayerControlsView: UIView {
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.5, execute: w)
     }
 
+    /// The lock button only exists in fullscreen, so a lock must not outlive it.
+    func unlock() { if locked { toggleLock() } }
+
     private func toggleLock() {
         locked.toggle()
         lockButton.setImage(Theme.symbol(locked ? "lock.fill" : "lock.open", size: 17, weight: .semibold), for: .normal)

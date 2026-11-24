@@ -410,6 +410,7 @@ final class FloatingPlayerController: NSObject {
     private func exitFullscreen(animated: Bool) {
         guard let vc = fullscreenVC else { return }
         fullscreenVC = nil
+        controls.unlock()
         contentView.autoresizingMask = []
         container.addSubview(contentView)
         container.isHidden = false
@@ -494,8 +495,12 @@ final class FloatingPlayerController: NSObject {
             if mode == .mini { panMode = 3; return }
             // Horizontal: seek. Vertical: volume on the left, brightness on the right
             // (the middle strip of the pinned window keeps swipe up to close / down to shrink).
-            let x = g.location(in: contentView).x / max(contentView.bounds.width, 1)
-            if abs(vel.x) > abs(vel.y) {
+            // Sides are taken from the picture, not the window: a 4:3 or zoomed video is pillarboxed.
+            let pic = pictureFrame
+            let x = min(max((g.location(in: contentView).x - pic.minX) / max(pic.width, 1), 0), 1)
+            // Past the recognizer's threshold, the finger's path is steadier than one velocity sample.
+            let horizontal = hypot(t.x, t.y) >= 4 ? abs(t.x) > abs(t.y) : abs(vel.x) > abs(vel.y)
+            if horizontal {
                 panMode = duration > 0 ? 1 : 0
                 panStartTime = currentTime
             } else if mode == .top && x > 0.38 && x < 0.62 {
@@ -565,6 +570,15 @@ final class FloatingPlayerController: NSObject {
             panMode = 0
         default: break
         }
+    }
+
+    /// Visible part of the video in contentView coordinates (the whole view until the size is known).
+    private var pictureFrame: CGRect {
+        let b = contentView.bounds
+        let r = playerView.playerLayer.videoRect
+        guard r.width > 1, r.height > 1 else { return b }
+        let pic = playerView.convert(r, to: contentView).intersection(b)
+        return pic.width > 40 ? pic : b
     }
 
     /// Full-width swipe covers up to 3 minutes, so short and long videos both seek precisely.
@@ -757,6 +771,9 @@ final class FullscreenPlayerViewController: UIViewController {
     override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation { landscape ? .landscapeRight : .portrait }
     override var prefersStatusBarHidden: Bool { true }
     override var prefersHomeIndicatorAutoHidden: Bool { true }
+    /// Volume/brightness swipes start near the top and bottom edges; don't let Notification or
+    /// Control Center take them on the first pull.
+    override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { .all }
 
     override func viewDidLoad() {
         super.viewDidLoad()
