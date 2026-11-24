@@ -113,11 +113,22 @@ struct HLSMediaPlaylist {
 /// subtitles work without capturing the app's sound. Segments come from the proxy cache (the
 /// player has usually fetched them already), are decrypted (AES-128), demuxed (MPEG-TS, packed
 /// AAC or fragmented MP4) and decoded to PCM; each slice is handed over once playback reaches it.
+///
+/// With a lookahead the audio is instead handed over as soon as it is decoded, tagged with its
+/// position in the stream, up to `lookahead` seconds ahead of playback.
 final class HLSAudioFeed {
     var onBuffer: ((AVAudioPCMBuffer) -> Void)?
+    /// Lookahead mode: decoded audio and its start time in the stream, on the feed's queue.
+    var onTimedBuffer: ((Double, AVAudioPCMBuffer) -> Void)?
+    /// Lookahead mode: where already-processed audio running through a time ends, so it isn't read twice.
+    var coveredUntil: ((Double) -> Double?)?
+    /// Lookahead mode: the last segment has been handed over.
+    var onEnd: (() -> Void)?
     /// Called once on the main queue when this stream's audio can't be read here.
     var onFailure: ((String) -> Void)?
 
+    let lookahead: Double
+    var isLookahead: Bool { lookahead > 0 }
     private let proxied: URL
     private let time: () -> Double
     private let queue = DispatchQueue(label: "fa.hlsaudio")
@@ -128,6 +139,9 @@ final class HLSAudioFeed {
     private var pending: [(start: Double, buffer: AVAudioPCMBuffer)] = []
     private var nextTime = -1.0
     private var deliveredTo = -1.0
+    private var lastTime = -1.0
+    private var epoch = 0
+    private var endReported = false
     private var busy = false
     private var failures = 0
     private var waitedForPlaylist = 0
@@ -135,9 +149,15 @@ final class HLSAudioFeed {
     private var maps: [URL: Data] = [:]
     private let aac = ADTSDecoder()
 
-    init(proxied: URL, time: @escaping () -> Double) {
+    init(proxied: URL, lookahead: Double = 0, time: @escaping () -> Double) {
         self.proxied = proxied
+        self.lookahead = lookahead
         self.time = time
+    }
+
+    /// Starts reading again from the playback position (e.g. for a new recognizer).
+    func rewind() {
+        queue.async { self.lastTime = -1; self.deliveredTo = -1 }
     }
 
     func start() {
@@ -166,12 +186,14 @@ final class HLSAudioFeed {
     }
 
     private func advance(to t: Double) {
-        guard !stopped, t.isFinite else { return }
+        guard !stopped, t.isFinite, t >= 0 else { return }
+        if isLookahead { advanceAhead(to: t); return }
         // Seek: drop what was prepared and start decoding where playback now is.
         if deliveredTo < 0 || t < deliveredTo - 1.5 || t > deliveredTo + 4 {
             pending = []
             nextTime = t
             deliveredTo = t
+            epoch += 1
             aac.reset()
         }
         while let first = pending.first, first.start <= t {
@@ -183,14 +205,38 @@ final class HLSAudioFeed {
         deliveredTo = max(deliveredTo, t)
         let preparedTo = pending.last.map { $0.start + Double($0.buffer.frameLength) / $0.buffer.format.sampleRate } ?? nextTime
         guard !busy, preparedTo < t + 8 else { return }
+        requestNext()
+    }
+
+    private func advanceAhead(to t: Double) {
+        // Start or seek: read from where playback now is, skipping what was already processed.
+        if lastTime < 0 || t < lastTime - 1.5 || t > lastTime + 5 {
+            nextTime = t
+            epoch += 1
+            endReported = false
+            aac.reset()
+        }
+        lastTime = t
+        guard !busy else { return }
+        if let end = coveredUntil?(nextTime), end > nextTime + 0.05 {
+            nextTime = end
+            aac.reset()
+        }
+        guard nextTime < t + lookahead else { return }
+        requestNext()
+    }
+
+    private func requestNext() {
         busy = true
+        let e = epoch
         VideoProxy.shared.hlsAudioPlaylist(for: proxied) { [weak self] playlist in
-            self?.queue.async { self?.loadNext(playlist) }
+            self?.queue.async { self?.loadNext(playlist, epoch: e) }
         }
     }
 
-    private func loadNext(_ playlist: HLSMediaPlaylist?) {
+    private func loadNext(_ playlist: HLSMediaPlaylist?, epoch e: Int) {
         guard !stopped else { return }
+        guard e == epoch else { busy = false; return }
         guard let playlist, !playlist.segments.isEmpty else {
             busy = false
             waitedForPlaylist += 1
@@ -200,11 +246,18 @@ final class HLSAudioFeed {
         guard playlist.ended else { fail("live stream"); return }
         guard let i = playlist.index(at: nextTime + 0.05) else { busy = false; return }
         let seg = playlist.segments[i]
-        guard seg.start + seg.duration > nextTime + 0.05 else { busy = false; return }
+        guard seg.start + seg.duration > nextTime + 0.05 else {
+            busy = false
+            if isLookahead, i == playlist.segments.count - 1, !endReported {
+                endReported = true
+                onEnd?()
+            }
+            return
+        }
         guard !seg.byteRange else { fail("byte-range segments"); return }
         if let key = seg.key, key.method != "AES-128" { fail("encryption \(key.method)"); return }
         fetch(seg) { [weak self] data in
-            self?.queue.async { self?.decode(data, segment: seg) }
+            self?.queue.async { self?.decode(data, segment: seg, epoch: e) }
         }
     }
 
@@ -240,9 +293,9 @@ final class HLSAudioFeed {
         }
     }
 
-    private func decode(_ data: Data?, segment seg: HLSMediaPlaylist.Segment) {
+    private func decode(_ data: Data?, segment seg: HLSMediaPlaylist.Segment, epoch e: Int) {
         busy = false
-        guard !stopped else { return }
+        guard !stopped, e == epoch else { return }
         guard let data else {
             failures += 1
             if failures >= 3 { fail("download") }
@@ -265,6 +318,15 @@ final class HLSAudioFeed {
         }
         failures = 0
         var t = seg.start
+        if isLookahead {
+            for b in pcm {
+                let d = Double(b.frameLength) / b.format.sampleRate
+                if t + d > nextTime - 0.05 { onTimedBuffer?(t, b) }
+                t += d
+            }
+            nextTime = seg.start + seg.duration
+            return
+        }
         for b in Self.slices(pcm, seconds: 0.25) {
             if t + Double(b.frameLength) / b.format.sampleRate > nextTime - 0.3 { pending.append((t, b)) }
             t += Double(b.frameLength) / b.format.sampleRate

@@ -189,8 +189,15 @@ final class SenseVoiceEngine {
     static let shared = SenseVoiceEngine()
 
     struct Result {
+        struct Token {
+            let text: String
+            /// Seconds from the start of the decoded audio.
+            let time: Double
+        }
         let text: String
         let language: String
+        /// Tokens with their times, when the model reports them.
+        var tokens: [Token] = []
     }
 
     private let lock = NSLock()
@@ -214,7 +221,13 @@ final class SenseVoiceEngine {
         defer { SherpaOnnxDestroyOfflineRecognizerResult(res) }
         let text = res.pointee.text.map { String(cString: $0) } ?? ""
         let lang = res.pointee.lang.map { String(cString: $0) } ?? ""
-        return Result(text: text.trimmingCharacters(in: .whitespacesAndNewlines), language: lang.trimmingCharacters(in: CharacterSet(charactersIn: "<|> ")))
+        var tokens: [Result.Token] = []
+        if let times = res.pointee.timestamps, let arr = res.pointee.tokens_arr, res.pointee.count > 0 {
+            for i in 0..<Int(res.pointee.count) {
+                if let p = arr[i] { tokens.append(Result.Token(text: String(cString: p), time: Double(times[i]))) }
+            }
+        }
+        return Result(text: text.trimmingCharacters(in: .whitespacesAndNewlines), language: lang.trimmingCharacters(in: CharacterSet(charactersIn: "<|> ")), tokens: tokens)
     }
 
     /// Frees the model a while after subtitles stop, unless they start again.
@@ -257,7 +270,7 @@ final class SenseVoiceEngine {
 }
 
 /// Silero voice activity detector (bundled, 640 KB): finds where utterances start and end.
-private final class SileroVAD {
+final class SileroVAD {
     static let window = 512
     private let vad: OpaquePointer
 
@@ -284,15 +297,21 @@ private final class SileroVAD {
     var speechDetected: Bool { SherpaOnnxVoiceActivityDetectorDetected(vad) != 0 }
 
     /// The next finished utterance, if any.
-    func popSegment() -> [Float]? {
+    func popSegment() -> [Float]? { popTimedSegment()?.samples }
+
+    /// The next finished utterance and its first sample's index in everything accepted so far.
+    func popTimedSegment() -> (start: Int64, samples: [Float])? {
         guard SherpaOnnxVoiceActivityDetectorEmpty(vad) == 0, let seg = SherpaOnnxVoiceActivityDetectorFront(vad) else { return nil }
         defer {
             SherpaOnnxDestroySpeechSegment(seg)
             SherpaOnnxVoiceActivityDetectorPop(vad)
         }
-        guard let p = seg.pointee.samples, seg.pointee.n > 0 else { return [] }
-        return Array(UnsafeBufferPointer(start: p, count: Int(seg.pointee.n)))
+        guard let p = seg.pointee.samples, seg.pointee.n > 0 else { return (seg.pointee.start, []) }
+        return (seg.pointee.start, Array(UnsafeBufferPointer(start: p, count: Int(seg.pointee.n))))
     }
+
+    /// Ends the utterance in progress so it can be popped.
+    func flush() { SherpaOnnxVoiceActivityDetectorFlush(vad) }
 }
 
 /// Converts any PCM to 16 kHz mono float and queues it for the worker.
@@ -305,15 +324,26 @@ final class MonoResampler: @unchecked Sendable {
 
     func append(_ buffer: AVAudioPCMBuffer) {
         lock.lock(); defer { lock.unlock() }
-        guard buffer.frameLength > 0 else { return }
+        pending.append(contentsOf: resample(buffer))
+        if pending.count > 16000 * 30 { pending.removeFirst(pending.count - 16000 * 30) }
+    }
+
+    /// Converts one buffer directly, without queueing it.
+    func convert(_ buffer: AVAudioPCMBuffer) -> [Float] {
+        lock.lock(); defer { lock.unlock() }
+        return resample(buffer)
+    }
+
+    private func resample(_ buffer: AVAudioPCMBuffer) -> [Float] {
+        guard buffer.frameLength > 0 else { return [] }
         if source != buffer.format {
             converter = AVAudioConverter(from: buffer.format, to: target)
             converter?.downmix = true
             source = buffer.format
         }
-        guard let converter else { return }
+        guard let converter else { return [] }
         let capacity = AVAudioFrameCount(Double(buffer.frameLength) * target.sampleRate / buffer.format.sampleRate) + 64
-        guard let out = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { return }
+        guard let out = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { return [] }
         var supplied = false
         var error: NSError?
         let status = converter.convert(to: out, error: &error) { _, outStatus in
@@ -322,9 +352,8 @@ final class MonoResampler: @unchecked Sendable {
             outStatus.pointee = .haveData
             return buffer
         }
-        guard status != .error, out.frameLength > 0, let ch = out.floatChannelData?[0] else { return }
-        pending.append(contentsOf: UnsafeBufferPointer(start: ch, count: Int(out.frameLength)))
-        if pending.count > 16000 * 30 { pending.removeFirst(pending.count - 16000 * 30) }
+        guard status != .error, out.frameLength > 0, let ch = out.floatChannelData?[0] else { return [] }
+        return Array(UnsafeBufferPointer(start: ch, count: Int(out.frameLength)))
     }
 
     func drain() -> [Float] {
@@ -537,14 +566,14 @@ final class SenseVoiceChannel: SpeechChannel {
         DispatchQueue.main.async { [weak self] in self?.deliverFinal(out) }
     }
 
-    private static let jaParticles = ["は", "が", "を", "に", "で", "と", "も", "の", "へ", "や", "て", "から", "けど", "ので", "のに"]
-    private static let zhOpen: Set<Character> = ["的", "和", "与", "跟", "在", "把", "被", "对", "从", "就", "是", "而", "但", "或"]
-    private static let enOpen: Set<String> = ["a", "an", "the", "of", "to", "and", "or", "but", "with", "for", "in", "on", "at", "about", "from",
+    static let jaParticles = ["は", "が", "を", "に", "で", "と", "も", "の", "へ", "や", "て", "から", "けど", "ので", "のに"]
+    static let zhOpen: Set<Character> = ["的", "和", "与", "跟", "在", "把", "被", "对", "从", "就", "是", "而", "但", "或"]
+    static let enOpen: Set<String> = ["a", "an", "the", "of", "to", "and", "or", "but", "with", "for", "in", "on", "at", "about", "from",
                                               "our", "your", "my", "his", "her", "their", "is", "are", "was", "were", "be", "that", "this",
                                               "so", "if", "because", "than", "as", "into", "very", "not", "we", "they", "i", "he", "she"]
 
     /// Whether an utterance obviously stops mid-sentence, so the period the model added is wrong.
-    private static func continues(_ text: String, language: String) -> Bool {
+    static func continues(_ text: String, language: String) -> Bool {
         switch language {
         case "ja": return text.count < 4 || jaParticles.contains { text.hasSuffix($0) } || text.last.map("まっ".contains) == true
         case "zh", "yue": return text.count < 4 || text.last.map(zhOpen.contains) == true
@@ -577,13 +606,13 @@ final class SenseVoiceChannel: SpeechChannel {
         }
     }
 
-    private static let enders: Set<Character> = [".", "。", "．", "?", "？", "!", "！"]
-    private static func cjk(_ code: String) -> Bool { ["zh", "ja", "yue"].contains(code) }
+    static let enders: Set<Character> = [".", "。", "．", "?", "？", "!", "！"]
+    static func cjk(_ code: String) -> Bool { ["zh", "ja", "yue"].contains(code) }
     private static let cjkSpaces = try! NSRegularExpression(pattern: "(?<=[\\p{Han}\\p{Hiragana}\\p{Katakana}ー、。，])\\s+(?=[\\p{Han}\\p{Hiragana}\\p{Katakana}ー、。，])")
 
     /// Drops output with no letters at all (noise decoded as punctuation) and the stray spaces
     /// the model sometimes puts between Japanese/Chinese words.
-    private static func clean(_ text: String) -> String {
+    static func clean(_ text: String) -> String {
         var t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard t.unicodeScalars.contains(where: CharacterSet.letters.contains) else { return "" }
         if t.contains(" ") {

@@ -54,6 +54,7 @@ Chuyển lời nói trong **bất kỳ video nào** thành phụ đề, rồi d�
 - Ngôn ngữ khác (Việt, Thái, Pháp, Đức, Nga…) dùng **SpeechAnalyzer** của Apple trên iOS 26, hoặc Speech framework trên iOS cũ hơn. Đổi bộ nhận dạng trong Cài đặt › Phụ đề
 - Hiển thị **chỉ bản dịch**, **song ngữ** hoặc **bản gốc**, chỉnh được cỡ chữ
 - Chạy được với file video thường (gắn trực tiếp vào âm thanh của trình phát), với HLS và với video phát ngay trong trang
+- **Video HLS (m3u8) với SenseVoice: phụ đề được chuẩn bị trước** tới 45 giây từ các đoạn đã tải. Câu bị ngắt do ngập ngừng được ghép lại, câu trả lời ngắn đi kèm câu bên cạnh, dịch nguyên câu trước khi tới lúc hiện, và phụ đề hiện đúng lúc nhân vật nói (theo mốc thời gian từng chữ của mô hình). Đọc được TS, AAC, fMP4 và luồng mã hoá AES-128, không cần quyền ghi màn hình
 
 </td>
 </tr>
@@ -172,7 +173,8 @@ FAbrowser/
 │                   VideoProxy (proxy loopback tải song song + cache)
 ├── Translate/      TranslationService (Apple Translation + TranslationCache), PageTranslator (JS + thanh dịch/đề xuất)
 ├── Subtitles/      LiveSubtitles (audio tap + ReplayKit, overlay phụ đề), SpeechChannels (Apple Speech),
-│                   SenseVoice (sherpa-onnx + Silero VAD, tải mô hình)
+│                   SenseVoice (sherpa-onnx + Silero VAD, tải mô hình), HLSAudio (đọc âm thanh segment HLS),
+│                   TimedSubtitles (nhận dạng trước, ghép câu, dòng thời gian phụ đề)
 ├── Models/         TabManager, AdBlocker + ABPConverter, ScriptManager, Bookmark/History/Search stores
 ├── Settings/       Settings (khai báo bằng SettingRow), Onboarding, Extensions
 ├── Lock/           CaroLock (luật caro + máy chơi, màn khoá, ghi 3 nước mở khoá)
@@ -186,13 +188,15 @@ FAbrowser/
 ```mermaid
 flowchart LR
     A[Video file<br/>AVPlayerItem] -->|MTAudioProcessingTap| C
-    B[HLS / video trong trang] -->|ReplayKit app audio| C
+    H[HLS qua proxy] -->|đọc trước segment<br/>TimedSenseVoice| T[Dòng thời gian câu<br/>dịch trước, hiện theo giờ phát]
+    B[Video trong trang / livestream] -->|ReplayKit app audio| C
     C[Bộ đệm âm thanh] --> V[Silero VAD] --> S[SenseVoiceSmall<br/>zh · en · ja · ko · yue<br/>tự nhận ngôn ngữ]
     C --> D[Apple SpeechAnalyzer / Speech<br/>ngôn ngữ khác]
     S --> E[Câu gốc]
     D --> E
     E --> F[Apple Translation<br/>on-device]
     F --> G[Overlay<br/>bản dịch / song ngữ]
+    T --> G
     E --> G
 ```
 
@@ -261,7 +265,7 @@ xcrun simctl launch booted com.fabrowser.app -FAProxyLog YES -FAPlayURL https://
 ### Giới hạn đã biết
 
 - Dịch trang và dịch phụ đề cần iOS 18. Gói ngôn ngữ được tải khi dùng lần đầu. Trên Simulator, Apple Translation có thể báo cặp ngôn ngữ không hỗ trợ.
-- Phụ đề cho HLS/video trong trang dùng ReplayKit, nên iOS sẽ hỏi quyền ghi màn hình.
+- Phụ đề cho video trong trang, livestream, hoặc HLS khi tắt Tăng tốc video dùng ReplayKit, nên iOS sẽ hỏi quyền ghi màn hình. Phụ đề chuẩn bị trước chỉ có với HLS không phải livestream và SenseVoice.
 - SenseVoice không hỗ trợ tiếng Việt; phụ đề tiếng Việt dùng nhận dạng của Apple. Bản build cần chạy `scripts/fetch-sherpa-onnx.sh` trước (thư mục `Vendor/` không nằm trong git).
 - ABPConverter hỗ trợ quy tắc mạng (`||domain^`, `$third-party`/`3p`, `$domain=`/`from=`, `@@`), `$removeparam`, hosts file và quy tắc ẩn `##`. Quy tắc nâng cao (`#?#`, `#$#`, scriptlet, `:has()`) sẽ bị bỏ qua.
 - Tăng tốc tải video chỉ áp dụng cho trình phát nổi native, không áp dụng cho trình phát trong trang. Trang phát bằng MSE/blob chỉ mở được khi trang đã tải file m3u8.

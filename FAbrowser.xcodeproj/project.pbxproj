@@ -31,6 +31,7 @@
 		6EAF0B85C948C503F21E04E8 /* AdBlocker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D86CEC3B54DD7068E5035D4 /* AdBlocker.swift */; };
 		75D74CC29A5BF9225510AA35 /* HLSAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 560DA99FD896E128E6DE0CF3 /* HLSAudio.swift */; };
 		7CA8A620F3C4E24EADC5FC5E /* VideoProxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1382B9033C2EAC88C395F7A /* VideoProxy.swift */; };
+		829B31785F886D9CBF271FAC /* TimedSubtitles.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC3AB0687D390A220F68959 /* TimedSubtitles.swift */; };
 		85EB3CE5491C54CDB120C609 /* PageTranslator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1AB2C867369B4567B23D0F /* PageTranslator.swift */; };
 		8B08343F2F45EB6B57600D07 /* DebugLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CABEC703E73F1CE9A736788 /* DebugLaunch.swift */; };
 		8BD4B52203A538989C3C832B /* BrowserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 629D1D449C4B71E2C7CA7262 /* BrowserViewController.swift */; };
@@ -125,6 +126,7 @@
 		C99EED0E108038B6953CECA8 /* TranslationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationService.swift; sourceTree = "<group>"; };
 		C9AF226D4B220929575D0DD2 /* FaviconManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaviconManager.swift; sourceTree = "<group>"; };
 		CA83BA1263A4AE57834343E5 /* CaroLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaroLock.swift; sourceTree = "<group>"; };
+		CCC3AB0687D390A220F68959 /* TimedSubtitles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimedSubtitles.swift; sourceTree = "<group>"; };
 		CCD05806EA16C08FD65A9363 /* FilesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesViewController.swift; sourceTree = "<group>"; };
 		D0F05F139A5E596CB3600E80 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		D7CEE6A746AD9809224F58CF /* BrowserViewController+Actions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserViewController+Actions.swift"; sourceTree = "<group>"; };
@@ -350,6 +352,7 @@
 				B001B6F0B75830AB7CC840F4 /* LiveSubtitles.swift */,
 				C3A7A53E0F3B77D9D09F5241 /* SenseVoice.swift */,
 				54AE4723EE52C32652268BA9 /* SpeechChannels.swift */,
+				CCC3AB0687D390A220F68959 /* TimedSubtitles.swift */,
 			);
 			path = Subtitles;
 			sourceTree = "<group>";
@@ -502,6 +505,7 @@
 				A1A4535193F28790E35AD666 /* TabToolbar.swift in Sources */,
 				51B23B9338742D055CA21DDD /* TabTrayController.swift in Sources */,
 				9AA7B99345CDDCED8C63FE62 /* Theme.swift in Sources */,
+				829B31785F886D9CBF271FAC /* TimedSubtitles.swift in Sources */,
 				E7135A95185BED6F2C81EA46 /* TopTabsView.swift in Sources */,
 				0968B72A1C0C5023BD269A5D /* TranslationService.swift in Sources */,
 				6CC3235B459008B566FEF05F /* URLBarView.swift in Sources */,

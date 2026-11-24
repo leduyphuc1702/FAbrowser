@@ -10,6 +10,8 @@ import UIKit
 ///   -FAThenURL https://…                load a second page 14 s after launch (-FAThenBack YES goes back at 26 s)
 ///   -FAScreen caro.lock -FACaroPlay 50,51,52  show the caro lock and play those cells
 ///   -FAPlayTitle "…"                    title for -FAPlayURL; -FALiveSubs YES starts live subtitles on it
+///   -FASeeks "8:40,20:5"                seek the player to 40 s at 8 s after launch, then to 5 s at 20 s
+///   -FASubsLookahead 12                 how far ahead HLS subtitles are prepared (default 45 s)
 /// Example: xcrun simctl launch booted com.fabrowser.app -FAScreen menu
 enum DebugLaunch {
     static var skipsOnboarding: Bool { UserDefaults.standard.bool(forKey: "FASkipOnboarding") || UserDefaults.standard.string(forKey: "FAScreen") != nil && UserDefaults.standard.string(forKey: "FAScreen") != "onboarding" }
@@ -26,6 +28,11 @@ enum DebugLaunch {
             }
             if d.bool(forKey: "FALiveSubs") {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { browser.toggleSubtitles(forPlayer: true) }
+            }
+            for step in (d.string(forKey: "FASeeks") ?? "").split(separator: ",") {
+                let p = step.split(separator: ":").compactMap { Double($0) }
+                guard p.count == 2 else { continue }
+                DispatchQueue.main.asyncAfter(deadline: .now() + p[0]) { browser.floatingPlayer.seek(to: p[1]) }
             }
         }
         if let s = d.string(forKey: "FAThenURL"), let url = URL(string: s) {

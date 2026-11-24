@@ -66,10 +66,16 @@ final class LiveSubtitles: NSObject {
     weak var overlay: SubtitleOverlayView?
 
     private var channels: [SpeechChannel] = [] {
-        didSet { sinkLock.lock(); sinks = channels; sinkLock.unlock() }
+        didSet { sinkLock.lock(); sinks = channels; timedSink = channels.first as? TimedSenseVoice; sinkLock.unlock() }
     }
     private let sinkLock = NSLock()
     private var sinks: [SpeechChannel] = []
+    private var timedSink: TimedSenseVoice?
+    private let timeline = CueTimeline()
+    private var cueTimer: Timer?
+    private var shownCue: String?
+    private var translatingTimed = false
+    private var timedNoticeShown = false
     private(set) var resolvedLocale: String?
     private var provisional = false
     private var firstHeard: Date?
@@ -118,6 +124,7 @@ final class LiveSubtitles: NSObject {
         self.presenter = presenter
         senseVoiceFailed = false
         offeredPack = false
+        timedNoticeShown = false
         packStatus = [:]
         requestPermission(presenter: presenter) { [weak self] ok in
             guard let self, ok else { return }
@@ -136,6 +143,10 @@ final class LiveSubtitles: NSObject {
         generation += 1
         tick?.invalidate()
         tick = nil
+        cueTimer?.invalidate()
+        cueTimer = nil
+        timeline.removeAll()
+        shownCue = nil
         channels.forEach { $0.stop() }
         channels = []
         detachTap()
@@ -156,6 +167,16 @@ final class LiveSubtitles: NSObject {
     func restartRecognition() {
         guard isOn else { return }
         startRecognition()
+        reattachIfEngineChanged()
+    }
+
+    /// HLS is read ahead of playback only for SenseVoice; other recognizers need it in step.
+    private func reattachIfEngineChanged() {
+        guard let feed = hlsFeed, let item = playerItem else { return }
+        let ahead = !senseVoiceFailed && SpeechEngine.senseVoiceHandles(Prefs.subtitleSource)
+        guard feed.isLookahead != ahead else { return }
+        detachTap()
+        attachAudio(to: item)
     }
 
     func playerItemChanged(_ item: AVPlayerItem, url: URL) {
@@ -195,33 +216,54 @@ final class LiveSubtitles: NSObject {
         s.forEach(body)
     }
 
+    private var currentTimedSink: TimedSenseVoice? {
+        sinkLock.lock(); defer { sinkLock.unlock() }
+        return timedSink
+    }
+
     private func attachAudio(to item: AVPlayerItem) {
         playerItem = item
         Task { @MainActor in
             let tracks = (try? await item.asset.loadTracks(withMediaType: .audio)) ?? []
             guard self.isOn, self.playerItem === item else { return }
             if let track = tracks.first, let tap = PlayerAudioTap(track: track) {
+                if self.channels.first is TimedSenseVoice { self.startRecognition() }
                 tap.onBuffer = { [weak self] buf in self?.forEachSink { $0.append(buf) } }
                 item.audioMix = tap.audioMix
                 self.tap = tap
             } else if let url = (item.asset as? AVURLAsset)?.url, VideoProxy.isProxied(url) {
                 // HLS exposes no audio track to a tap; read the segments the proxy is serving instead.
-                let feed = HLSAudioFeed(proxied: url) { [weak item] in
+                // With SenseVoice they are recognized ahead of playback and captioned on the timeline.
+                let ahead = !self.senseVoiceFailed && SpeechEngine.senseVoiceHandles(Prefs.subtitleSource)
+                var lookahead = 45.0
+                #if DEBUG
+                if UserDefaults.standard.double(forKey: "FASubsLookahead") > 0 { lookahead = UserDefaults.standard.double(forKey: "FASubsLookahead") }
+                #endif
+                let feed = HLSAudioFeed(proxied: url, lookahead: ahead ? lookahead : 0) { [weak item] in
                     guard let t = item?.currentTime().seconds, t.isFinite else { return -1 }
                     return t
                 }
-                feed.onBuffer = { [weak self] buf in self?.forEachSink { $0.append(buf) } }
+                if ahead {
+                    feed.onTimedBuffer = { [weak self] t, buf in self?.currentTimedSink?.feed(buf, at: t) }
+                    feed.coveredUntil = { [weak self] t in self?.currentTimedSink?.coveredEnd(at: t) }
+                    feed.onEnd = { [weak self] in self?.currentTimedSink?.finish() }
+                } else {
+                    feed.onBuffer = { [weak self] buf in self?.forEachSink { $0.append(buf) } }
+                }
                 feed.onFailure = { [weak self, weak feed] reason in
                     guard let self, let feed, self.hlsFeed === feed, self.isOn else { return }
                     self.log("hls audio unavailable (\(reason)); using app audio")
                     self.hlsFeed = nil
+                    if feed.isLookahead { self.startRecognition() }
                     self.startReplayKit()
                 }
                 self.hlsFeed = feed
+                if ahead { self.startRecognition() } else if self.channels.first is TimedSenseVoice { self.startRecognition() }
                 feed.start()
-                self.log("hls audio from proxy")
+                self.log("hls audio from proxy" + (ahead ? ", read ahead" : ""))
             } else {
                 // Streams that don't go through the proxy: capture the app's audio output instead.
+                if self.channels.first is TimedSenseVoice { self.startRecognition() }
                 self.startReplayKit()
             }
         }
@@ -343,7 +385,11 @@ final class LiveSubtitles: NSObject {
         overlay?.showStatus(locales.count > 1 && prior == nil ? L("Detecting spoken language…") : L("Listening…"))
 
         if !senseVoiceFailed, SpeechEngine.senseVoiceHandles(chosen) {
-            startSenseVoice(locale: chosen == "auto" ? nil : chosen)
+            if hlsFeed?.isLookahead == true {
+                startTimedSenseVoice(locale: chosen == "auto" ? nil : chosen)
+            } else {
+                startSenseVoice(locale: chosen == "auto" ? nil : chosen)
+            }
             return
         }
 
@@ -383,6 +429,31 @@ final class LiveSubtitles: NSObject {
         ch.start()
     }
 
+    /// SenseVoice over HLS read ahead of playback: captions are placed on the video timeline.
+    private func startTimedSenseVoice(locale: String?) {
+        let ch = TimedSenseVoice(locale: locale)
+        wire(ch)
+        ch.onLanguage = { [weak self, weak ch] _ in
+            guard let self, let ch, self.channels.first === ch else { return }
+            self.resolve(ch, provisional: false)
+        }
+        ch.onSentence = { [weak self, weak ch] sentence in
+            guard let self, let ch, self.channels.first === ch else { return }
+            self.addTimed(sentence)
+        }
+        timeline.removeAll()
+        shownCue = nil
+        channels = [ch]
+        log("channels sensevoice ahead " + (locale ?? "auto"))
+        if locale != nil { resolve(ch, provisional: false) }
+        ch.start()
+        hlsFeed?.rewind()
+        cueTimer?.invalidate()
+        let t = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in self?.updateCue() }
+        RunLoop.main.add(t, forMode: .common)
+        cueTimer = t
+    }
+
     private func offerSenseVoice() {
         guard let presenter, presenter.view.window != nil, presenter.presentedViewController == nil else { return }
         Prefs.senseVoiceOffered = true
@@ -406,6 +477,7 @@ final class LiveSubtitles: NSObject {
             guard SpeechEngine.senseVoiceHandles(Prefs.subtitleSource) else { return }
             self.senseVoiceFailed = false
             self.startRecognition()
+            self.reattachIfEngineChanged()
             self.overlay?.showStatus(L("Using the new speech model"), duration: 2)
         })
     }
@@ -441,6 +513,7 @@ final class LiveSubtitles: NSObject {
             senseVoiceFailed = true
             overlay?.showStatus(error.localizedDescription, duration: 3)
             startRecognition()
+            reattachIfEngineChanged()
             return
         }
         if ch.kind == .apple, let legacy = LegacySpeechChannel(locale: ch.locale) {
@@ -520,6 +593,7 @@ final class LiveSubtitles: NSObject {
     }
 
     private func onTick() {
+        if channels.first is TimedSenseVoice { pumpTimedTranslation() }
         channels.forEach { $0.tick() }
         if channels.count > 1 { evaluateDetection() }
         if Date().timeIntervalSince(lastTextChange) > 1.4 { refreshDisplay() }
@@ -638,7 +712,87 @@ final class LiveSubtitles: NSObject {
         Task { @MainActor in
             try? await TranslationService.shared.prepare(from: source, to: Prefs.translateTarget, presenter: top)
             self.packStatus = [:]
+            self.timeline.clearFailures()
         }
+    }
+
+    // MARK: Timed captions
+
+    private var playbackTime: Double? {
+        guard let t = playerItem?.currentTime().seconds, t.isFinite else { return nil }
+        return t
+    }
+
+    private func addTimed(_ sentence: TimedSentence) {
+        guard timeline.add(sentence) != nil else { return }
+        log(String(format: "cue %.2f-%.2f [%d] ", sentence.start, sentence.end, sentence.parts.count) + sentence.text)
+        pumpTimedTranslation()
+        updateCue()
+    }
+
+    /// Translates whole sentences ahead of their time, a few per request, nearest first.
+    private func pumpTimedTranslation() {
+        guard isOn, !translatingTimed, mode != .original else { return }
+        let target = Prefs.translateTarget
+        let ids = timeline.untranslated(target: target, near: playbackTime ?? 0, limit: 6) { self.needsTranslation($0) }
+        guard let first = ids.first, let lead = timeline.entries[first]?.sentence else { return }
+        let source = SubtitleLanguages.translationSource(lead.locale, text: lead.text)
+        let batch = ids.filter { id in
+            timeline.entries[id].map { SubtitleLanguages.translationSource($0.sentence.locale, text: $0.sentence.text) == source } ?? false
+        }
+        let texts = batch.compactMap { timeline.entries[$0]?.sentence.text }
+        translatingTimed = true
+        let gen = generation
+        Task { @MainActor in
+            defer { self.translatingTimed = false }
+            let pair = source + ">" + target
+            if self.packStatus[pair] == nil { self.packStatus[pair] = await TranslationService.shared.status(from: source, to: target) }
+            guard gen == self.generation else { return }
+            let status = self.packStatus[pair] ?? .installed
+            guard status == .installed else {
+                batch.forEach(self.timeline.markFailed)
+                if status == .downloadable {
+                    self.offerLanguagePack(source)
+                } else if !self.timedNoticeShown {
+                    self.timedNoticeShown = true
+                    self.overlay?.showStatus((status == .unavailableOS ? TranslationError.unavailableOS : TranslationError.unsupportedPair).localizedDescription, duration: 4)
+                }
+                return
+            }
+            do {
+                let out = try await TranslationService.shared.translate(texts, from: source, to: target, cache: true, slot: 0)
+                guard gen == self.generation else { return }
+                for (id, text) in zip(batch, out) { self.timeline.setTranslation(id, text, target: target, cjk: SubtitleLanguages.isCJK(target)) }
+                self.updateCue()
+            } catch {
+                guard gen == self.generation else { return }
+                batch.forEach(self.timeline.markFailed)
+                self.log("translate \(source) failed: \(error)")
+                if case TranslationError.notInstalled = error {
+                    self.packStatus[pair] = .downloadable
+                    self.offerLanguagePack(source)
+                }
+            }
+        }
+    }
+
+    /// Shows the caption due at the current playback time.
+    private func updateCue() {
+        guard channels.first is TimedSenseVoice, let overlay else { return }
+        guard let t = playbackTime else { return }
+        guard let cue = timeline.cue(at: t), let texts = timeline.texts(for: cue, target: Prefs.translateTarget) else {
+            if shownCue != nil {
+                shownCue = nil
+                overlay.hideCaptionNow()
+            }
+            return
+        }
+        // Until its translation is ready (just after a seek) a caption shows what was said.
+        let translated = needsTranslation(texts.locale) ? texts.translated : nil
+        let key = "\(cue.entry).\(cue.part)|\(mode.rawValue)|" + (translated ?? "")
+        guard key != shownCue else { return }
+        shownCue = key
+        overlay.show(original: texts.original, translated: translated, mode: translated == nil ? .original : mode, autoHide: false)
     }
 }
 
@@ -720,6 +874,7 @@ final class SubtitleOverlayView: UIView {
     private var statusWork: DispatchWorkItem?
     private var statusYields = false
     private var captionWork: DispatchWorkItem?
+    private var captionSerial = 0
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -777,7 +932,8 @@ final class SubtitleOverlayView: UIView {
         else { setNeedsLayout() }
     }
 
-    func show(original: String, translated: String?, mode: SubtitleMode) {
+    /// Without `autoHide` the caption stays until replaced or `hideCaptionNow()` (timed captions).
+    func show(original: String, translated: String?, mode: SubtitleMode, autoHide: Bool = true) {
         switch mode {
         case .original:
             set(primary, original); set(secondary, nil)
@@ -786,7 +942,12 @@ final class SubtitleOverlayView: UIView {
         case .bilingual:
             set(primary, translated ?? original); set(secondary, translated == nil ? nil : original)
         }
-        captionShown()
+        captionShown(autoHide: autoHide)
+    }
+
+    func hideCaptionNow() {
+        captionWork?.cancel()
+        hideCaption()
     }
 
     func updateOriginal(_ text: String) {
@@ -813,13 +974,16 @@ final class SubtitleOverlayView: UIView {
     }
 
     /// Each caption stays up for as long as it takes to read, then clears unless a newer one replaced it.
-    private func captionShown() {
+    private func captionShown(autoHide: Bool = true) {
         alpha = 1
         primary.alpha = 1
         secondary.alpha = 1
+        captionSerial += 1
         if statusYields, !status.isHidden { statusWork?.cancel(); statusWork = nil; set(status, nil) }
         relayout()
         captionWork?.cancel()
+        captionWork = nil
+        guard autoHide else { return }
         let text = [primary, secondary].filter { !$0.isHidden }.compactMap(\.text).max { $0.count < $1.count } ?? ""
         let w = DispatchWorkItem { [weak self] in self?.hideCaption() }
         captionWork = w
@@ -834,11 +998,12 @@ final class SubtitleOverlayView: UIView {
 
     private func hideCaption() {
         captionWork = nil
+        let serial = captionSerial
         UIView.animate(withDuration: 0.3) {
             self.primary.alpha = 0
             self.secondary.alpha = 0
         } completion: { _ in
-            guard self.captionWork == nil else { return }
+            guard serial == self.captionSerial else { return }
             self.set(self.primary, nil)
             self.set(self.secondary, nil)
             self.primary.alpha = 1
