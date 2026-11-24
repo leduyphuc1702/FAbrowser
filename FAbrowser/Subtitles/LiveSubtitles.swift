@@ -88,6 +88,7 @@ final class LiveSubtitles: NSObject {
     private var waitingSince: Date?
     private weak var presenter: UIViewController?
     private var tap: PlayerAudioTap?
+    private var hlsFeed: HLSAudioFeed?
     private weak var playerItem: AVPlayerItem?
     private var usingReplayKit = false
     private(set) var audioCaptureFailed = false
@@ -203,8 +204,24 @@ final class LiveSubtitles: NSObject {
                 tap.onBuffer = { [weak self] buf in self?.forEachSink { $0.append(buf) } }
                 item.audioMix = tap.audioMix
                 self.tap = tap
+            } else if let url = (item.asset as? AVURLAsset)?.url, VideoProxy.isProxied(url) {
+                // HLS exposes no audio track to a tap; read the segments the proxy is serving instead.
+                let feed = HLSAudioFeed(proxied: url) { [weak item] in
+                    guard let t = item?.currentTime().seconds, t.isFinite else { return -1 }
+                    return t
+                }
+                feed.onBuffer = { [weak self] buf in self?.forEachSink { $0.append(buf) } }
+                feed.onFailure = { [weak self, weak feed] reason in
+                    guard let self, let feed, self.hlsFeed === feed, self.isOn else { return }
+                    self.log("hls audio unavailable (\(reason)); using app audio")
+                    self.hlsFeed = nil
+                    self.startReplayKit()
+                }
+                self.hlsFeed = feed
+                feed.start()
+                self.log("hls audio from proxy")
             } else {
-                // HLS streams expose no audio tracks to a tap; capture the app's audio output instead.
+                // Streams that don't go through the proxy: capture the app's audio output instead.
                 self.startReplayKit()
             }
         }
@@ -213,6 +230,8 @@ final class LiveSubtitles: NSObject {
     private func detachTap() {
         playerItem?.audioMix = nil
         tap = nil
+        hlsFeed?.stop()
+        hlsFeed = nil
     }
 
     private func startReplayKit() {
@@ -238,9 +257,16 @@ final class LiveSubtitles: NSObject {
         beginCapture()
     }
 
-    private func beginCapture() {
+    private func beginCapture(retried: Bool = false) {
         guard isOn, !usingReplayKit else { return }
         let rec = RPScreenRecorder.shared()
+        // A capture still winding down makes the next start fail ("Recording failed to start").
+        if rec.isRecording {
+            rec.stopCapture { [weak self] _ in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self?.beginCapture(retried: retried) }
+            }
+            return
+        }
         rec.isMicrophoneEnabled = false
         usingReplayKit = true
         audioCaptureFailed = false
@@ -254,6 +280,14 @@ final class LiveSubtitles: NSObject {
                 guard let error else { Prefs.appAudioAllowed = true; return }
                 self.usingReplayKit = false
                 guard self.isOn else { return }
+                let e = error as NSError
+                if !retried, e.domain == RPRecordingErrorDomain, e.code == RPRecordingErrorCode.failedToStart.rawValue {
+                    self.log("replaykit failed to start; retrying")
+                    rec.stopCapture { _ in
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.beginCapture(retried: true) }
+                    }
+                    return
+                }
                 self.captureFailed(error, prompted: Date().timeIntervalSince(began) > 1)
             }
         })

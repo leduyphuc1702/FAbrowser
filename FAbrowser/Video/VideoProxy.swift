@@ -41,8 +41,13 @@ final class VideoProxy {
         var length: Int64 = -1
         var contentType = "video/mp4"
         var isHLS = false
-        /// Segments of the last media playlist served, in play order.
-        var segments: [URL] = []
+        /// Media playlists served so far, by original URL.
+        var playlists: [URL: HLSMediaPlaylist] = [:]
+        /// Media playlists listed as separate audio renditions in the master playlist.
+        var audioRenditions = Set<URL>()
+        /// Playlists the player most recently took a segment from (main and audio rendition).
+        var activePlaylist: URL?
+        var activeAudioPlaylist: URL?
         var chunkWaiters: [Int: [(Data?) -> Void]] = [:]
         var segmentWaiters: [String: [(Data?, String?) -> Void]] = [:]
 
@@ -335,8 +340,9 @@ final class VideoProxy {
             }.resume()
             return
         }
-        if let idx = src.segments.firstIndex(of: target) {
-            for next in src.segments[(idx + 1)...].prefix(VideoProxy.segmentPrefetch) { segment(next, of: src) { _, _ in } }
+        if let (playlistURL, playlist) = src.playlists.first(where: { $0.value.index(of: target) != nil }), let idx = playlist.index(of: target) {
+            if src.audioRenditions.contains(playlistURL) { src.activeAudioPlaylist = playlistURL } else { src.activePlaylist = playlistURL }
+            for next in playlist.segments[(idx + 1)...].prefix(VideoProxy.segmentPrefetch) { segment(next.url, of: src) { _, _ in } }
             segment(target, of: src) { data, type in
                 guard let data else { self.respond(c, status: "502 Bad Gateway", headers: [:], body: Data()); return }
                 self.respond(c, status: "200 OK", headers: ["Content-Type": type ?? VideoProxy.mime(for: target)], body: data, headOnly: headOnly)
@@ -364,7 +370,7 @@ final class VideoProxy {
 
     private func rewrite(_ text: String, base: URL, src: Source) -> String {
         let isMedia = text.contains("#EXTINF")
-        var segments: [URL] = []
+        if isMedia { src.playlists[base] = HLSMediaPlaylist(text: text, base: base) }
         let lines = text.components(separatedBy: .newlines).map { line -> String in
             let t = line.trimmingCharacters(in: .whitespaces)
             if t.isEmpty { return line }
@@ -373,14 +379,40 @@ final class VideoProxy {
                 let rest = t[r.upperBound...]
                 guard let q = rest.firstIndex(of: "\""), let abs = URL(string: String(rest[..<q]), relativeTo: base)?.absoluteURL,
                       ["http", "https"].contains(abs.scheme?.lowercased() ?? "") else { return line }
+                if t.hasPrefix("#EXT-X-MEDIA:"), HLSMediaPlaylist.attributes(t)["TYPE"] == "AUDIO" { src.audioRenditions.insert(abs) }
                 return String(t[..<r.upperBound]) + proxyURL(for: abs, source: src).absoluteString + String(rest[q...])
             }
             guard let abs = URL(string: t, relativeTo: base)?.absoluteURL else { return line }
-            if isMedia { segments.append(abs) }
             return proxyURL(for: abs, source: src).absoluteString
         }
-        if isMedia { src.segments = segments }
         return lines.joined(separator: "\n")
+    }
+
+    // MARK: HLS audio for subtitles
+
+    /// The media playlist whose audio the player is playing: the active audio rendition if the
+    /// stream has separate audio, else the variant the player is on.
+    func hlsAudioPlaylist(for proxied: URL, completion: @escaping (HLSMediaPlaylist?) -> Void) {
+        queue.async {
+            guard let src = self.source(of: proxied) else { completion(nil); return }
+            let audio = src.activeAudioPlaylist ?? src.audioRenditions.first { src.playlists[$0] != nil }
+            let url = audio ?? src.activePlaylist ?? (src.playlists.count == 1 ? src.playlists.keys.first : nil)
+            completion(url.flatMap { src.playlists[$0] })
+        }
+    }
+
+    /// Bytes of a segment, key or init section of the stream behind `proxied`, from the cache when the player already loaded it.
+    func hlsData(for proxied: URL, url: URL, completion: @escaping (Data?) -> Void) {
+        queue.async {
+            guard let src = self.source(of: proxied) else { completion(nil); return }
+            self.segment(url, of: src) { data, _ in completion(data) }
+        }
+    }
+
+    private func source(of proxied: URL) -> Source? {
+        let comps = proxied.pathComponents
+        guard comps.count >= 3, comps[1] == "s" else { return nil }
+        return sources[comps[2]]
     }
 
     private static func mime(for url: URL) -> String {
