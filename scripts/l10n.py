@@ -37,6 +37,7 @@ VI = {
     "Without app audio, subtitles can't hear videos played inside web pages or as streams. Tap Try Again and choose Allow.": "Không có âm thanh của app thì phụ đề không nghe được video phát trong trang web hoặc video dạng stream. Chạm Thử lại rồi chọn Cho phép.",
     "iOS isn't showing its permission prompt right now; it waits a few minutes after a refusal. Try again in a moment, or turn subtitles off and on later.": "Lúc này iOS chưa hiện lại hộp hỏi quyền; sau khi bị từ chối, iOS chờ vài phút mới hỏi lại. Hãy thử lại sau giây lát, hoặc tắt rồi bật lại phụ đề sau.",
     "Couldn't capture the app's audio.": "Không lấy được âm thanh của app.",
+    "Reconnecting subtitle audio…": "Đang kết nối lại âm thanh cho phụ đề…",
     "No Audio for Subtitles": "Phụ đề chưa có âm thanh",
     "Turn Off": "Tắt",
     "Try Again": "Thử lại",

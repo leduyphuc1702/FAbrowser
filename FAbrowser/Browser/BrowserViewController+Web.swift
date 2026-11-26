@@ -72,6 +72,7 @@ extension BrowserViewController: WKNavigationDelegate {
         tab.nextPageURL = nil
         tab.videos = []
         tab.adNoticeShown = false
+        tab.adURLs = []
         if tab.translateSuggested != nil {
             tab.translateSuggested = nil
             if tab === currentTab, !tab.translateActive { translateBar.hide() }

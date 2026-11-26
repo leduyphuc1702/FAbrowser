@@ -48,6 +48,8 @@ final class VideoProxy {
         /// Playlists the player most recently took a segment from (main and audio rendition).
         var activePlaylist: URL?
         var activeAudioPlaylist: URL?
+        var loadingPlaylist = false
+        var playlistWaiters: [() -> Void] = []
         var chunkWaiters: [Int: [(Data?) -> Void]] = [:]
         var segmentWaiters: [String: [(Data?, String?) -> Void]] = [:]
 
@@ -395,10 +397,95 @@ final class VideoProxy {
     func hlsAudioPlaylist(for proxied: URL, completion: @escaping (HLSMediaPlaylist?) -> Void) {
         queue.async {
             guard let src = self.source(of: proxied) else { completion(nil); return }
-            let audio = src.activeAudioPlaylist ?? src.audioRenditions.first { src.playlists[$0] != nil }
-            let url = audio ?? src.activePlaylist ?? (src.playlists.count == 1 ? src.playlists.keys.first : nil)
-            completion(url.flatMap { src.playlists[$0] })
+            let pick: () -> HLSMediaPlaylist? = {
+                let audio = src.activeAudioPlaylist ?? src.audioRenditions.first { src.playlists[$0] != nil }
+                let url = audio ?? src.activePlaylist ?? (src.playlists.count == 1 ? src.playlists.keys.first : nil)
+                return url.flatMap { src.playlists[$0] }
+            }
+            if let p = pick() { completion(p); return }
+            // The player hasn't loaded a playlist through the proxy (yet, or it fell back to the
+            // original URL): load one here so subtitles can still read the audio.
+            guard src.isHLS else { completion(nil); return }
+            self.loadAudioPlaylist(src) { completion(pick()) }
         }
+    }
+
+    /// Proxied URL for reading the HLS audio of `url` when the player opened it directly.
+    func readerURL(for url: URL, headers: [String: String], completion: @escaping (URL?) -> Void) {
+        queue.async {
+            if let src = self.sources.values.first(where: { $0.url == url && $0.isHLS }), self.port != 0 {
+                let u = self.proxyURL(for: url, source: src)
+                DispatchQueue.main.async { completion(u) }
+                return
+            }
+            self.playableURL(for: url, headers: headers, cookies: []) { u in
+                self.queue.async {
+                    let ok = VideoProxy.isProxied(u) && self.source(of: u)?.isHLS == true
+                    DispatchQueue.main.async { completion(ok ? u : nil) }
+                }
+            }
+        }
+    }
+
+    /// Fetches the stream's playlist and, for a master playlist, the audio rendition (or the
+    /// lightest variant, whose segments carry the same audio). Calls back on the proxy queue.
+    private func loadAudioPlaylist(_ src: Source, completion: @escaping () -> Void) {
+        if src.loadingPlaylist { src.playlistWaiters.append(completion); return }
+        src.loadingPlaylist = true
+        src.playlistWaiters = [completion]
+        let finish = {
+            src.loadingPlaylist = false
+            let w = src.playlistWaiters
+            src.playlistWaiters = []
+            w.forEach { $0() }
+        }
+        fetchPlaylist(src.url, src: src) { text, base in
+            guard let text, let base else { finish(); return }
+            if text.contains("#EXTINF") { src.playlists[base] = HLSMediaPlaylist(text: text, base: base); finish(); return }
+            guard let (url, isAudio) = VideoProxy.audioSource(inMaster: text, base: base) else { finish(); return }
+            self.fetchPlaylist(url, src: src) { t, b in
+                if let t, let b, t.contains("#EXTINF") {
+                    src.playlists[b] = HLSMediaPlaylist(text: t, base: b)
+                    if isAudio { src.audioRenditions.insert(b) }
+                }
+                finish()
+            }
+        }
+    }
+
+    private func fetchPlaylist(_ url: URL, src: Source, completion: @escaping (String?, URL?) -> Void) {
+        session.dataTask(with: request(url, source: src, range: nil)) { data, resp, _ in
+            self.queue.async {
+                let http = resp as? HTTPURLResponse
+                guard let data, (200..<300).contains(http?.statusCode ?? 0), data.prefix(7) == Data("#EXTM3U".utf8),
+                      let text = String(data: data, encoding: .utf8) else { completion(nil, nil); return }
+                completion(text, http?.url ?? url)
+            }
+        }.resume()
+    }
+
+    /// The default audio rendition of a master playlist, else its lowest-bandwidth variant.
+    static func audioSource(inMaster text: String, base: URL) -> (URL, isAudio: Bool)? {
+        var audio: [(url: URL, isDefault: Bool)] = []
+        var variants: [(url: URL, bandwidth: Int)] = []
+        var pendingBandwidth: Int?
+        for raw in text.components(separatedBy: .newlines) {
+            let t = raw.trimmingCharacters(in: .whitespaces)
+            if t.isEmpty { continue }
+            if t.hasPrefix("#EXT-X-MEDIA:") {
+                let a = HLSMediaPlaylist.attributes(t)
+                if a["TYPE"] == "AUDIO", let u = a["URI"].flatMap({ URL(string: $0, relativeTo: base)?.absoluteURL }) {
+                    audio.append((u, a["DEFAULT"] == "YES"))
+                }
+            } else if t.hasPrefix("#EXT-X-STREAM-INF:") {
+                pendingBandwidth = Int(HLSMediaPlaylist.attributes(t)["BANDWIDTH"] ?? "") ?? Int.max
+            } else if !t.hasPrefix("#"), let bw = pendingBandwidth {
+                if let u = URL(string: t, relativeTo: base)?.absoluteURL { variants.append((u, bw)) }
+                pendingBandwidth = nil
+            }
+        }
+        if let a = audio.first(where: \.isDefault) ?? audio.first { return (a.url, true) }
+        return variants.min { $0.bandwidth < $1.bandwidth }.map { ($0.url, false) }
     }
 
     /// Bytes of a segment, key or init section of the stream behind `proxied`, from the cache when the player already loaded it.

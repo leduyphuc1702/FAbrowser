@@ -126,6 +126,8 @@ final class HLSAudioFeed {
     var onEnd: (() -> Void)?
     /// Called once on the main queue when this stream's audio can't be read here.
     var onFailure: ((String) -> Void)?
+    /// Main queue: downloads keep failing and are being retried (true), or work again (false).
+    var onStall: ((Bool) -> Void)?
 
     let lookahead: Double
     var isLookahead: Bool { lookahead > 0 }
@@ -144,6 +146,12 @@ final class HLSAudioFeed {
     private var endReported = false
     private var busy = false
     private var failures = 0
+    private var segmentFailures = 0
+    private var undecodable = 0
+    private var decodedAny = false
+    private var stalled = false
+    private var retryAt = Date.distantPast
+    private var lastPlaylist: HLSMediaPlaylist?
     private var waitedForPlaylist = 0
     private var keys: [URL: Data] = [:]
     private var maps: [URL: Data] = [:]
@@ -194,6 +202,7 @@ final class HLSAudioFeed {
             nextTime = t
             deliveredTo = t
             epoch += 1
+            segmentFailures = 0
             aac.reset()
         }
         while let first = pending.first, first.start <= t {
@@ -214,6 +223,7 @@ final class HLSAudioFeed {
             nextTime = t
             epoch += 1
             endReported = false
+            segmentFailures = 0
             aac.reset()
         }
         lastTime = t
@@ -227,6 +237,7 @@ final class HLSAudioFeed {
     }
 
     private func requestNext() {
+        guard Date() >= retryAt else { return }
         busy = true
         let e = epoch
         VideoProxy.shared.hlsAudioPlaylist(for: proxied) { [weak self] playlist in
@@ -237,12 +248,15 @@ final class HLSAudioFeed {
     private func loadNext(_ playlist: HLSMediaPlaylist?, epoch e: Int) {
         guard !stopped else { return }
         guard e == epoch else { busy = false; return }
-        guard let playlist, !playlist.segments.isEmpty else {
+        // A finished (VOD) playlist doesn't change, so the last copy serves while the proxy can't load it.
+        guard let playlist = playlist.flatMap({ $0.segments.isEmpty ? nil : $0 }) ?? lastPlaylist else {
             busy = false
             waitedForPlaylist += 1
-            if waitedForPlaylist > 50 { fail("no playlist") }
+            if waitedForPlaylist > 14 { fail("no playlist"); return }
+            retryAt = Date().addingTimeInterval(min(8, 0.5 * Double(waitedForPlaylist)))
             return
         }
+        lastPlaylist = playlist
         guard playlist.ended else { fail("live stream"); return }
         guard let i = playlist.index(at: nextTime + 0.05) else { busy = false; return }
         let seg = playlist.segments[i]
@@ -296,11 +310,7 @@ final class HLSAudioFeed {
     private func decode(_ data: Data?, segment seg: HLSMediaPlaylist.Segment, epoch e: Int) {
         busy = false
         guard !stopped, e == epoch else { return }
-        guard let data else {
-            failures += 1
-            if failures >= 3 { fail("download") }
-            return
-        }
+        guard let data else { downloadFailed(seg); return }
         var pcm: [AVAudioPCMBuffer] = []
         if let es = MPEGTS.audioStream(data) {
             pcm = aac.decode(es)
@@ -310,13 +320,18 @@ final class HLSAudioFeed {
             pcm = FragmentedMP4.decode(data)
         }
         guard !pcm.isEmpty else {
-            failures += 1
             NSLog("[subs] hls audio: no decodable audio in segment %d (%d bytes)", seg.sequence, data.count)
-            if failures >= 2 { fail("unsupported audio") }
+            // Once audio has decoded, a bad segment is a glitch (or an error page), not an unsupported format.
+            undecodable += 1
+            if !decodedAny, undecodable >= 2 { fail("unsupported audio") }
             nextTime = seg.start + seg.duration
             return
         }
         failures = 0
+        segmentFailures = 0
+        undecodable = 0
+        decodedAny = true
+        setStalled(false)
         var t = seg.start
         if isLookahead {
             for b in pcm {
@@ -332,6 +347,26 @@ final class HLSAudioFeed {
             t += Double(b.frameLength) / b.format.sampleRate
         }
         nextTime = seg.start + seg.duration
+    }
+
+    /// Network trouble is waited out (1, 2, 4… up to 30 s between tries) rather than abandoning the
+    /// stream for screen capture; a segment that keeps failing is skipped so later ones still get subtitles.
+    private func downloadFailed(_ seg: HLSMediaPlaylist.Segment) {
+        failures += 1
+        segmentFailures += 1
+        retryAt = Date().addingTimeInterval(min(30, pow(2, Double(failures - 1))))
+        NSLog("[subs] hls audio: segment %d failed (%d in a row), next try in %.0f s", seg.sequence, failures, retryAt.timeIntervalSinceNow)
+        if segmentFailures >= 4 {
+            segmentFailures = 0
+            nextTime = seg.start + seg.duration
+        }
+        if failures >= 2 { setStalled(true) }
+    }
+
+    private func setStalled(_ on: Bool) {
+        guard stalled != on else { return }
+        stalled = on
+        DispatchQueue.main.async { self.onStall?(on) }
     }
 
     /// Re-cuts decoded audio into even slices so it can be released in small steps.

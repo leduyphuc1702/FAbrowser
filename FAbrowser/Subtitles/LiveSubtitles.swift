@@ -102,6 +102,9 @@ final class LiveSubtitles: NSObject {
     private var lastInterimTranslate = Date.distantPast
     private var translateGeneration = 0
 
+    /// Headers the floating player opens its video with, for reading a directly played stream.
+    var playerHeaders: [String: String] = [:]
+
     var mode: SubtitleMode { SubtitleMode(rawValue: Prefs.subtitleModeRaw) ?? .translation }
 
     /// Name of the engine in use, for the settings page.
@@ -232,41 +235,63 @@ final class LiveSubtitles: NSObject {
                 item.audioMix = tap.audioMix
                 self.tap = tap
             } else if let url = (item.asset as? AVURLAsset)?.url, VideoProxy.isProxied(url) {
-                // HLS exposes no audio track to a tap; read the segments the proxy is serving instead.
-                // With SenseVoice they are recognized ahead of playback and captioned on the timeline.
-                let ahead = !self.senseVoiceFailed && SpeechEngine.senseVoiceHandles(Prefs.subtitleSource)
-                var lookahead = 45.0
-                #if DEBUG
-                if UserDefaults.standard.double(forKey: "FASubsLookahead") > 0 { lookahead = UserDefaults.standard.double(forKey: "FASubsLookahead") }
-                #endif
-                let feed = HLSAudioFeed(proxied: url, lookahead: ahead ? lookahead : 0) { [weak item] in
-                    guard let t = item?.currentTime().seconds, t.isFinite else { return -1 }
-                    return t
-                }
-                if ahead {
-                    feed.onTimedBuffer = { [weak self] t, buf in self?.currentTimedSink?.feed(buf, at: t) }
-                    feed.coveredUntil = { [weak self] t in self?.currentTimedSink?.coveredEnd(at: t) }
-                    feed.onEnd = { [weak self] in self?.currentTimedSink?.finish() }
-                } else {
-                    feed.onBuffer = { [weak self] buf in self?.forEachSink { $0.append(buf) } }
-                }
-                feed.onFailure = { [weak self, weak feed] reason in
-                    guard let self, let feed, self.hlsFeed === feed, self.isOn else { return }
-                    self.log("hls audio unavailable (\(reason)); using app audio")
-                    self.hlsFeed = nil
-                    if feed.isLookahead { self.startRecognition() }
+                self.startHLSFeed(proxied: url, item: item)
+            } else if let url = (item.asset as? AVURLAsset)?.url, ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
+                // Played directly (proxy off, or the player fell back to the original URL): an HLS
+                // stream can still be read through the proxy just for its audio.
+                VideoProxy.shared.readerURL(for: url, headers: self.playerHeaders) { [weak self, weak item] reader in
+                    guard let self, let item, self.isOn, self.playerItem === item, self.hlsFeed == nil, !self.usingReplayKit else { return }
+                    if let reader { self.startHLSFeed(proxied: reader, item: item); return }
+                    if self.channels.first is TimedSenseVoice { self.startRecognition() }
                     self.startReplayKit()
                 }
-                self.hlsFeed = feed
-                if ahead { self.startRecognition() } else if self.channels.first is TimedSenseVoice { self.startRecognition() }
-                feed.start()
-                self.log("hls audio from proxy" + (ahead ? ", read ahead" : ""))
             } else {
-                // Streams that don't go through the proxy: capture the app's audio output instead.
+                // Streams that can't be read here: capture the app's audio output instead.
                 if self.channels.first is TimedSenseVoice { self.startRecognition() }
                 self.startReplayKit()
             }
         }
+    }
+
+    /// HLS exposes no audio track to a tap; read the segments through the proxy instead.
+    /// With SenseVoice they are recognized ahead of playback and captioned on the timeline.
+    private func startHLSFeed(proxied url: URL, item: AVPlayerItem) {
+        let ahead = !senseVoiceFailed && SpeechEngine.senseVoiceHandles(Prefs.subtitleSource)
+        var lookahead = 45.0
+        #if DEBUG
+        if UserDefaults.standard.double(forKey: "FASubsLookahead") > 0 { lookahead = UserDefaults.standard.double(forKey: "FASubsLookahead") }
+        #endif
+        let feed = HLSAudioFeed(proxied: url, lookahead: ahead ? lookahead : 0) { [weak item] in
+            guard let t = item?.currentTime().seconds, t.isFinite else { return -1 }
+            return t
+        }
+        if ahead {
+            feed.onTimedBuffer = { [weak self] t, buf in self?.currentTimedSink?.feed(buf, at: t) }
+            feed.coveredUntil = { [weak self] t in self?.currentTimedSink?.coveredEnd(at: t) }
+            feed.onEnd = { [weak self] in self?.currentTimedSink?.finish() }
+        } else {
+            feed.onBuffer = { [weak self] buf in self?.forEachSink { $0.append(buf) } }
+        }
+        // Only a stream that really can't be read here (live, unsupported audio or encryption)
+        // falls back to capturing the app's audio; network trouble is retried by the feed.
+        feed.onFailure = { [weak self, weak feed] reason in
+            guard let self, let feed, self.hlsFeed === feed, self.isOn else { return }
+            self.log("hls audio unavailable (\(reason)); using app audio")
+            self.hlsFeed = nil
+            self.overlay?.hideStatus(ifShowing: L("Reconnecting subtitle audio…"))
+            if feed.isLookahead { self.startRecognition() }
+            self.startReplayKit()
+        }
+        feed.onStall = { [weak self, weak feed] on in
+            guard let self, let feed, self.hlsFeed === feed, self.isOn else { return }
+            self.log(on ? "hls audio stalled; retrying" : "hls audio back")
+            if on { self.overlay?.showStatus(L("Reconnecting subtitle audio…"), duration: 120) }
+            else { self.overlay?.hideStatus(ifShowing: L("Reconnecting subtitle audio…")) }
+        }
+        hlsFeed = feed
+        if ahead { startRecognition() } else if channels.first is TimedSenseVoice { startRecognition() }
+        feed.start()
+        log("hls audio from proxy" + (ahead ? ", read ahead" : ""))
     }
 
     private func detachTap() {
@@ -1010,6 +1035,14 @@ final class SubtitleOverlayView: UIView {
             self.secondary.alpha = 1
             self.relayout()
         }
+    }
+
+    func hideStatus(ifShowing text: String) {
+        guard !status.isHidden, status.text == text else { return }
+        statusWork?.cancel()
+        statusWork = nil
+        set(status, nil)
+        relayout()
     }
 
     func clear() {

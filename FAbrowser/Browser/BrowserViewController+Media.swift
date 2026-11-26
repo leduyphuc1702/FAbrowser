@@ -71,7 +71,12 @@ extension BrowserViewController {
     // MARK: Video detection
 
     func handleVideoMessage(_ body: [String: Any], frame: WKFrameInfo, tab: Tab) {
-        guard let v = DetectedVideo(message: body, frame: frame) else { return }
+        guard var v = DetectedVideo(message: body, frame: frame) else { return }
+        if v.reason == "admedia" {
+            adListed(v.key, in: tab)
+            return
+        }
+        if tab.adURLs.contains(v.key) { v.isAd = true }
         if let i = tab.videos.firstIndex(where: { $0.key == v.key }) {
             var merged = v
             if merged.title.isEmpty { merged.title = tab.videos[i].title }
@@ -98,7 +103,7 @@ extension BrowserViewController {
             guard let target, let url = target.src, url != fp.source?.url else { return }
             // The window caught an ad (or a short teaser) first: switch to the real video once it starts.
             let caughtShort = fp.duration > 0 && fp.duration <= 60 && (target.duration == 0 || target.duration > 60)
-            if (v.reason == "replace" && Prefs.allowAutoReplace) || (v.reason == "play" || v.reason == "replace") && caughtShort {
+            if (v.reason == "replace" && Prefs.allowAutoReplace) || (v.reason == "play" || v.reason == "replace") && (caughtShort || floatingShowsAd(in: tab)) {
                 play(target, in: tab)
             }
             return
@@ -115,11 +120,24 @@ extension BrowserViewController {
         play(target, in: tab)
     }
 
+    /// A VAST/VMAP response named this URL as an ad creative.
+    private func adListed(_ key: String, in tab: Tab) {
+        tab.adURLs.insert(key)
+        for i in tab.videos.indices where tab.videos[i].key == key { tab.videos[i].isAd = true }
+        guard tab === currentTab, Prefs.videoFloating, floatingShowsAd(in: tab) else { return }
+        if let main = candidates(for: tab).first(where: { $0.playing }) { play(main, in: tab) }
+    }
+
+    private func floatingShowsAd(in tab: Tab) -> Bool {
+        guard floatingPlayer.isActive, floatingPlayer.originTab === tab, let url = floatingPlayer.source?.url.absoluteString else { return false }
+        return tab.adURLs.contains(url) || tab.videos.contains { $0.key == url && $0.isAd }
+    }
+
     /// For a blob/MSE video, the most recent playlist URL the page requested, carrying the
     /// blob video's position and frame.
     private func streamCandidate(for v: DetectedVideo, in tab: Tab) -> DetectedVideo? {
         if !v.isBlob { return v }
-        guard var s = tab.videos.last(where: { $0.reason == "net" && !$0.isBlob && !$0.isAd }) else { return nil }
+        guard var s = tab.videos.last(where: { $0.reason == "net" && !$0.isBlob && !$0.isAd && !tab.adURLs.contains($0.key) }) else { return nil }
         if let blob = tab.videos.last(where: { $0.isBlob && !$0.isAd }) {
             s.time = blob.time
             s.duration = blob.duration
@@ -129,14 +147,27 @@ extension BrowserViewController {
         return s
     }
 
-    /// Best candidate for the floating button: the playing video, else the most recent non-stream one.
+    /// Candidates for the floating button, most likely main video first.
     private func candidates(for tab: Tab) -> [DetectedVideo] {
-        let real = tab.videos.filter { !$0.isBlob && !$0.isAd }
-        let playable = real.isEmpty ? tab.videos.filter { !$0.isBlob } : real
-        return playable.sorted { a, b in
-            if a.playing != b.playing { return a.playing }
-            return a.reportedAt > b.reportedAt
-        }
+        let real = tab.videos.filter { !$0.isBlob && !$0.isAd && $0.reason != "admedia" }
+        let playable = real.isEmpty ? tab.videos.filter { !$0.isBlob && $0.reason != "admedia" } : real
+        return playable.map { ($0, mainScore($0)) }.sorted { a, b in
+            if a.1 != b.1 { return a.1 > b.1 }
+            return a.0.reportedAt > b.0.reportedAt
+        }.map(\.0)
+    }
+
+    /// How much a video looks like the page's content rather than a preview, corner ad or teaser.
+    func mainScore(_ v: DetectedVideo) -> Double {
+        var s = min(v.viewWidth, 800) / 8
+        if v.viewWidth > 0 && v.viewWidth < 200 { s -= 40 }
+        if v.duration > 0 { s += v.duration >= 120 ? 40 : v.duration > 60 ? 20 : v.duration > 30 ? 0 : -40 }
+        if v.loop { s -= 80 }
+        if v.playing { s += v.muted ? -10 : 40 }
+        if v.userGesture { s += 30 }
+        if v.frame?.isMainFrame != false { s += 10 }
+        if v.reason == "net" { s += 20 }
+        return s
     }
 
     func videoStateChanged() {
@@ -206,7 +237,17 @@ extension BrowserViewController {
             for d in r as? [[String: Any]] ?? [] {
                 var body = d
                 body["reason"] = "meta"
-                if let v = DetectedVideo(message: body, frame: nil), !tab.videos.contains(where: { $0.key == v.key }) {
+                guard var v = DetectedVideo(message: body, frame: nil) else { continue }
+                if tab.adURLs.contains(v.key) { v.isAd = true }
+                if let i = tab.videos.firstIndex(where: { $0.key == v.key }) {
+                    let old = tab.videos[i]
+                    v.reason = old.reason
+                    v.frame = old.frame
+                    v.userGesture = old.userGesture
+                    v.isAd = v.isAd || old.isAd
+                    if v.title.isEmpty { v.title = old.title }
+                    tab.videos[i] = v
+                } else {
                     tab.videos.append(v)
                 }
             }
@@ -217,7 +258,8 @@ extension BrowserViewController {
                 }
                 return
             }
-            if list.count == 1 || list[0].playing { self.play(list[0], in: tab); return }
+            // Ask only when no video clearly stands out from the rest.
+            if list.count == 1 || self.mainScore(list[0]) - self.mainScore(list[1]) >= 40 { self.play(list[0], in: tab); return }
             let sheet = UIAlertController(title: L("Video"), message: nil, preferredStyle: .actionSheet)
             for v in list.prefix(8) {
                 let name = v.src?.lastPathComponent.isEmpty == false ? v.src!.lastPathComponent : (v.src?.host ?? "video")

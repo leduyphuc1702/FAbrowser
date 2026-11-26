@@ -220,6 +220,7 @@ final class FloatingPlayerController: NSObject {
         if start > 1 { player.seek(to: CMTime(seconds: start, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .positiveInfinity) }
         player.defaultRate = rate
         player.playImmediately(atRate: rate)
+        LiveSubtitles.shared.playerHeaders = headers
         if let source { LiveSubtitles.shared.playerItemChanged(item, url: source.url) }
     }
 

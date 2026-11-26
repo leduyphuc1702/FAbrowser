@@ -39,6 +39,7 @@ Bấm phát là video trên trang tách ra trình phát riêng. Bạn vẫn lư�
 
 - Ba chế độ: **ghim trên đầu** (đẩy trang xuống), **cửa sổ mini** kéo thả tự do, và **toàn màn hình ngang** có khoá thao tác, giờ và pin
 - Tự mở cửa sổ khi bắt được video đang phát. Nhận ra quảng cáo pre-roll: để quảng cáo (và bộ đếm "bỏ qua sau 5s") chạy tiếp trong trang, rồi mới mở video chính
+- **Bắt đúng video chính trên trang nhiều quảng cáo**: đọc danh sách quảng cáo VAST/VMAP trang tải về để biết file nào là quảng cáo, bỏ qua luồng m3u8 quảng cáo, iframe của mạng quảng cáo, video quảng cáo gắn link sang trang khác, video xem trước tự chạy không tiếng hoặc lặp lại ở góc màn hình. Tìm được cả video nằm trong shadow DOM, và mở video khi bạn bật tiếng cho video đang chạy không tiếng. Nếu cửa sổ lỡ mở quảng cáo thì tự chuyển sang video chính ngay khi nó bắt đầu phát
 - Cử chỉ: kéo ngang để tua (xem trước thời gian), kéo dọc **bên trái** chỉnh âm lượng, **bên phải** chỉnh độ sáng (trái/phải tính theo khung hình, nên video 4:3 có viền đen vẫn đúng vùng), chạm hai lần ở mép trái/phải để tua 5 giây, nhấn giữ để phát nhanh, chụm hai ngón để đổi tỉ lệ khung
 - **Tăng tốc tải video**: proxy cục bộ tải song song nhiều đoạn (MP4 theo khúc 1 MB, HLS theo segment), tải trước phía trước điểm đang xem và cache trong bộ nhớ nên tua mượt hơn
 - Hình trong hình (PiP), phát trong nền, nhớ vị trí đang xem, tự thay video khi trang phát video mới
@@ -55,6 +56,7 @@ Chuyển lời nói trong **bất kỳ video nào** thành phụ đề, rồi d�
 - Hiển thị **chỉ bản dịch**, **song ngữ** hoặc **bản gốc**, chỉnh được cỡ chữ
 - Chạy được với file video thường (gắn trực tiếp vào âm thanh của trình phát), với HLS và với video phát ngay trong trang
 - **Video HLS (m3u8) với SenseVoice: phụ đề được chuẩn bị trước** tới 45 giây từ các đoạn đã tải. Câu bị ngắt do ngập ngừng được ghép lại, câu trả lời ngắn đi kèm câu bên cạnh, dịch nguyên câu trước khi tới lúc hiện, và phụ đề hiện đúng lúc nhân vật nói (theo mốc thời gian từng chữ của mô hình). Đọc được TS, AAC, fMP4 và luồng mã hoá AES-128, không cần quyền ghi màn hình
+- Mạng chập chờn không làm tắt phụ đề: đoạn tải lỗi được thử lại (chờ tăng dần), đoạn hỏng hẳn thì bỏ qua, phụ đề hiện "Đang kết nối lại âm thanh cho phụ đề…" rồi chạy tiếp mà không đòi quyền ghi màn hình
 
 </td>
 </tr>

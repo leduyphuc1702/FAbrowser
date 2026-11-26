@@ -21,6 +21,8 @@ final class Tab {
     /// Media found on the current page (reset on each main-frame navigation).
     var videos: [DetectedVideo] = []
     var adNoticeShown = false
+    /// Ad creatives the page's VAST/VMAP responses listed.
+    var adURLs: Set<String> = []
     /// While true, every page loaded in this tab is translated to `Prefs.translateTarget`.
     var translateActive = false
     var translatedFrom: String?
